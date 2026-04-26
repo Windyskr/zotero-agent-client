@@ -444,15 +444,19 @@ class AcpClient {
 
   async connect(): Promise<any> {
     if (this.initializeResult) return this.initializeResult;
-    const { Subprocess } = ChromeUtils.importESModule("resource://gre/modules/Subprocess.sys.mjs");
-    const command = this.profile.command.includes("/")
-      ? this.profile.command
-      : await Subprocess.pathSearch(this.profile.command);
+    const command = await resolveExecutableCommand(
+      this.profile.command,
+      this.profile.env ?? {},
+    );
+    const environment = buildProcessEnvironment(this.profile.env ?? {});
     const options: any = { command, arguments: this.profile.args ?? [] };
-    if (Object.keys(this.profile.env ?? {}).length) {
-      options.environment = this.profile.env;
+    if (Object.keys(environment).length) {
+      options.environment = environment;
       options.environmentAppend = true;
     }
+    const { Subprocess } = ChromeUtils.importESModule(
+      "resource://gre/modules/Subprocess.sys.mjs",
+    );
     this.process = await Subprocess.call(options);
     void this.readStdout();
     void this.watchExit();
@@ -700,6 +704,132 @@ function simpleHash(input: string): string {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+async function resolveExecutableCommand(
+  command: string,
+  env: Record<string, string>,
+): Promise<string> {
+  const normalizedCommand = expandHomePath(command.trim());
+  if (!normalizedCommand) {
+    throw new Error("ACP command is empty");
+  }
+  if (normalizedCommand.includes("/")) {
+    return normalizedCommand;
+  }
+
+  for (const entry of collectSearchPathEntries(env)) {
+    const candidate = PathUtils.join(entry, normalizedCommand);
+    if (await IOUtils.exists(candidate)) {
+      return candidate;
+    }
+  }
+
+  const { Subprocess } = ChromeUtils.importESModule(
+    "resource://gre/modules/Subprocess.sys.mjs",
+  );
+  try {
+    const resolved = await Subprocess.pathSearch(normalizedCommand);
+    if (resolved && resolved !== normalizedCommand) {
+      return resolved;
+    }
+  } catch {}
+
+  throw new Error(
+    `Executable not found: ${normalizedCommand}. ` +
+      "Use an absolute path in agentProfiles.command, " +
+      "or set agentProfiles.env.PATH to include the executable directory.",
+  );
+}
+
+function buildProcessEnvironment(
+  env: Record<string, string>,
+): Record<string, string> {
+  const next: Record<string, string> = { ...env };
+  if (!next.PATH && !next.Path) {
+    const mergedPath = collectSearchPathEntries(env).join(":");
+    if (mergedPath) next.PATH = mergedPath;
+  }
+  return next;
+}
+
+function collectSearchPathEntries(env: Record<string, string>): string[] {
+  const pathEntries = splitPathEntries(env.PATH || env.Path || "");
+  const processPath = splitPathEntries(
+    Services.env.get("PATH") || Services.env.get("Path"),
+  );
+  const defaults = defaultPathEntries();
+  return Array.from(new Set([...pathEntries, ...processPath, ...defaults]));
+}
+
+function splitPathEntries(pathValue: string): string[] {
+  return pathValue
+    .split(":")
+    .map((entry) => expandHomePath(entry.trim()))
+    .filter((entry) => !!entry);
+}
+
+function defaultPathEntries(): string[] {
+  const home = getHomeDir();
+  const dynamic = [
+    home ? PathUtils.join(home, ".local", "bin") : "",
+    home ? PathUtils.join(home, "bin") : "",
+    home ? PathUtils.join(home, ".cargo", "bin") : "",
+    home ? PathUtils.join(home, ".npm-global", "bin") : "",
+    home ? PathUtils.join(home, "Library", "pnpm") : "",
+  ];
+  return [
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+    "/usr/sbin",
+    "/sbin",
+    ...dynamic,
+  ]
+    .map((entry) => expandHomePath(entry))
+    .filter((entry) => !!entry);
+}
+
+function expandHomePath(path: string): string {
+  if (!path) return "";
+  const home = getHomeDir();
+  if (!home) return path;
+  if (path === "~") return home;
+  if (path.startsWith("~/")) return PathUtils.join(home, path.slice(2));
+  return path;
+}
+
+function getHomeDir(): string {
+  if (typeof (PathUtils as any).homeDir === "string") {
+    return (PathUtils as any).homeDir;
+  }
+  const envHome = Services.env.get("HOME") || Services.env.get("USERPROFILE");
+  if (envHome) return envHome;
+
+  try {
+    const profileDir = String((Zotero as any).Profile?.dir || "");
+    return deriveHomeFromProfileDir(profileDir);
+  } catch {
+    return "";
+  }
+}
+
+function deriveHomeFromProfileDir(profileDir: string): string {
+  if (!profileDir) return "";
+  const normalized = profileDir.replace(/\\/g, "/");
+  const markers = [
+    "/Library/Application Support/Zotero/",
+    "/.zotero/",
+    "/AppData/",
+  ];
+  for (const marker of markers) {
+    const index = normalized.indexOf(marker);
+    if (index > 0) {
+      return normalized.slice(0, index);
+    }
+  }
+  return "";
 }
 
 function toMessage(error: unknown): string {
