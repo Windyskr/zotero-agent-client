@@ -1,4 +1,5 @@
 import { config } from "../../package.json";
+import MarkdownIt from "markdown-it";
 
 type ChatRole = "user" | "assistant" | "tool" | "system";
 
@@ -65,6 +66,13 @@ const PANE_ID = "acpchat-reader";
 const PREF_PREFIX = config.prefsPrefix;
 
 const clientPool = new Map<string, AcpClient>();
+const markdown = new MarkdownIt({
+  breaks: true,
+  html: false,
+  linkify: true,
+  typographer: false,
+});
+let toolbarHandler: ((event: any) => void) | null = null;
 
 export function registerAcpChat(): void {
   injectStyles();
@@ -78,18 +86,25 @@ export function registerAcpChat(): void {
     sidenav: {
       l10nID: `${config.addonRef}-acpchat-reader-section-sidenav-tooltip`,
       icon: `chrome://${config.addonRef}/content/icons/favicon.png`,
-    },
+      orderable: true,
+    } as any,
     onItemChange: ({ tabType, setEnabled }: any) => {
       setEnabled(tabType === "reader");
       return true;
     },
     onRender: ({ body, item }: any) => {
+      movePaneToTop(body);
       renderPanel(body, item);
     },
   });
+  registerReaderToolbarEntry();
 }
 
 export function unregisterAcpChat(): void {
+  if (toolbarHandler) {
+    Zotero.Reader.unregisterEventListener("renderToolbar", toolbarHandler);
+    toolbarHandler = null;
+  }
   Zotero.ItemPaneManager.unregisterSection(PANE_ID);
   for (const client of clientPool.values()) {
     client.close();
@@ -111,17 +126,77 @@ function injectStyles(): void {
       .acpchat-toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
       .acpchat-status { color: var(--fill-secondary, #5f6368); font-size: 12px; grid-column: 1 / -1; min-height: 18px; }
       .acpchat-messages { border: 1px solid var(--material-border-quinary, #d0d4da); border-radius: 6px; display: flex; flex: 1; flex-direction: column; gap: 8px; min-height: 190px; overflow: auto; padding: 8px; }
-      .acpchat-message { border-radius: 6px; line-height: 1.4; padding: 6px 8px; white-space: pre-wrap; }
+      .acpchat-message { border-radius: 6px; line-height: 1.45; overflow-wrap: anywhere; padding: 6px 8px; }
       .acpchat-message-user { background: #edf4ff; }
       .acpchat-message-assistant { background: #f4f6f7; }
       .acpchat-message-tool, .acpchat-message-system { color: var(--fill-secondary, #5f6368); font-size: 12px; }
+      .acpchat-message p { margin: 0 0 0.55em; }
+      .acpchat-message p:last-child { margin-bottom: 0; }
+      .acpchat-message ul, .acpchat-message ol { margin: 0.35em 0 0.55em 1.4em; padding: 0; }
+      .acpchat-message li { margin: 0.15em 0; }
+      .acpchat-message pre { background: rgba(0, 0, 0, 0.06); border-radius: 5px; margin: 0.5em 0; max-width: 100%; overflow: auto; padding: 7px; }
+      .acpchat-message code { background: rgba(0, 0, 0, 0.06); border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; padding: 0 3px; }
+      .acpchat-message pre code { background: transparent; padding: 0; }
+      .acpchat-message blockquote { border-left: 3px solid var(--material-border-quinary, #d0d4da); color: var(--fill-secondary, #5f6368); margin: 0.5em 0; padding-left: 8px; }
+      .acpchat-message table { border-collapse: collapse; display: block; margin: 0.5em 0; max-width: 100%; overflow: auto; }
+      .acpchat-message th, .acpchat-message td { border: 1px solid var(--material-border-quinary, #d0d4da); padding: 3px 6px; }
       .acpchat-input { min-height: 72px; resize: vertical; }
       .acpchat-button-row { display: flex; gap: 6px; }
       .acpchat-send { flex: 1; }
       .acpchat-error { color: #b3261e; }
+      .acpchat-toolbar-button { align-items: center; display: inline-flex; justify-content: center; min-width: 28px; min-height: 28px; }
     `;
     doc.documentElement?.append(style);
   }
+}
+
+function registerReaderToolbarEntry(): void {
+  if (toolbarHandler) return;
+  toolbarHandler = (event: any) => {
+    const { doc, reader, append } = event;
+    const button = doc.createElement("button");
+    button.className = "toolbar-button acpchat-toolbar-button";
+    button.type = "button";
+    button.title = "ACP Chat";
+    button.textContent = "AI";
+    button.addEventListener("click", () => {
+      try {
+        focusAcpPane(reader._window ?? Zotero.getMainWindow());
+      } catch (error) {
+        Zotero.logError(error as Error);
+      }
+    });
+    append(button);
+  };
+  Zotero.Reader.registerEventListener(
+    "renderToolbar",
+    toolbarHandler,
+    config.addonID,
+  );
+}
+
+function focusAcpPane(win: Window): void {
+  const doc = win.document;
+  const itemDetails = doc.querySelector('item-details[tabType="reader"]') as any;
+  const section = Array.from(
+    doc.querySelectorAll("item-pane-custom-section"),
+  ).find((node) => (node as HTMLElement).dataset.pane?.includes(PANE_ID)) as
+    | HTMLElement
+    | undefined;
+  const paneID = section?.dataset.pane;
+  if (!itemDetails || !paneID) return;
+  const pane = itemDetails.closest("context-pane, item-pane") as any;
+  if (pane) pane.collapsed = false;
+  itemDetails.pinnedPane = paneID;
+  void itemDetails.scrollToPane?.(paneID, "smooth");
+}
+
+function movePaneToTop(body: HTMLElement): void {
+  const section = body.closest("item-pane-custom-section") as HTMLElement | null;
+  const itemDetails = body.closest("item-details") as any;
+  const paneID = section?.dataset?.pane;
+  if (!paneID || typeof itemDetails?.changePaneOrder !== "function") return;
+  void itemDetails.changePaneOrder(paneID, 0, { render: false });
 }
 
 function renderPanel(body: HTMLElement, item: any): void {
@@ -563,10 +638,23 @@ function renderMessages(container: HTMLElement, messages: ChatMessage[]): void {
   for (const message of messages) {
     const node = doc.createElement("div");
     node.className = `acpchat-message acpchat-message-${message.role}`;
-    node.textContent = message.text || (message.status === "streaming" ? "..." : "");
+    const text = message.text || (message.status === "streaming" ? "..." : "");
+    if (message.role === "assistant" || message.role === "tool") {
+      node.innerHTML = markdown.render(text);
+      hardenRenderedLinks(node);
+    } else {
+      node.textContent = text;
+    }
     container.append(node);
   }
   container.scrollTop = container.scrollHeight;
+}
+
+function hardenRenderedLinks(container: HTMLElement): void {
+  for (const link of Array.from(container.querySelectorAll("a")) as HTMLAnchorElement[]) {
+    link.setAttribute("rel", "noreferrer");
+    link.setAttribute("target", "_blank");
+  }
 }
 
 function setStatus(status: HTMLElement, text: string, isError = false): void {
