@@ -3,7 +3,7 @@ import { ReaderPanel } from "./runtime/readerPanel";
 import { ZoteroPrefs } from "./runtime/prefs";
 
 const PANE_ID = "zotero-acpchat-reader";
-const PLUGIN_ID = "zotero-acpchat@local";
+const PLUGIN_ID = "zotero-acpchat@example.com";
 
 export class App {
   private readonly prefs = new ZoteroPrefs();

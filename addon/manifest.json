@@ -10,7 +10,7 @@
   },
   "applications": {
     "zotero": {
-      "id": "zotero-acpchat@local",
+      "id": "zotero-acpchat@example.com",
       "strict_min_version": "6.999",
       "strict_max_version": "9.9.*"
     }
