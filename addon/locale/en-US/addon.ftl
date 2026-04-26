@@ -1,1 +1,1 @@
-prefs-title = ACP Chat
+prefs-title = Zotero Agent Client

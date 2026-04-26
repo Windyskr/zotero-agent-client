@@ -1,24 +1,24 @@
 {
-  "name": "zotero-acp-sidebar-chat",
+  "name": "zotero-agent-client",
   "type": "module",
   "version": "0.1.0",
-  "description": "Chat with local ACP agents from Zotero's reader sidebar.",
+  "description": "Connect Zotero to local ACP agents from the reader sidebar.",
   "config": {
-    "addonName": "ACP Sidebar Chat",
-    "addonID": "zotero-acpchat@example.com",
-    "addonRef": "acpchat",
-    "addonInstance": "AcpChat",
-    "prefsPrefix": "extensions.zotero.acpchat"
+    "addonName": "Zotero Agent Client",
+    "addonID": "zotero-agent-client@example.com",
+    "addonRef": "agentclient",
+    "addonInstance": "ZoteroAgentClient",
+    "prefsPrefix": "extensions.zotero.agentclient"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/local/zotero-acp-sidebar-chat.git"
+    "url": "git+https://github.com/local/zotero-agent-client.git"
   },
-  "author": "Zotero ACP Sidebar Chat contributors",
+  "author": "Zotero Agent Client contributors",
   "bugs": {
-    "url": "https://github.com/local/zotero-acp-sidebar-chat/issues"
+    "url": "https://github.com/local/zotero-agent-client/issues"
   },
-  "homepage": "https://github.com/local/zotero-acp-sidebar-chat#readme",
+  "homepage": "https://github.com/local/zotero-agent-client#readme",
   "license": "MIT",
   "scripts": {
     "start": "zotero-plugin serve",

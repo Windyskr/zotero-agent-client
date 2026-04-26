@@ -157,7 +157,7 @@ function registerReaderToolbarEntry(): void {
     const button = doc.createElement("button");
     button.className = "toolbar-button acpchat-toolbar-button";
     button.type = "button";
-    button.title = "ACP Chat";
+    button.title = "Agent Client";
     button.textContent = "AI";
     button.addEventListener("click", () => {
       try {
@@ -459,7 +459,7 @@ class AcpClient {
     this.initializeResult = await this.request("initialize", {
       protocolVersion: 1,
       clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-      clientInfo: { name: "zotero-acp-sidebar-chat", title: "Zotero ACP Sidebar Chat", version: "0.1.0" },
+      clientInfo: { name: "zotero-agent-client", title: "Zotero Agent Client", version: "0.1.0" },
     });
     return this.initializeResult;
   }
@@ -565,7 +565,7 @@ class FileSessionStore {
   }
 
   private async path(): Promise<string> {
-    return this.configuredPath.trim() || PathUtils.join((Zotero as any).Profile.dir, "acpchat", "sessions.json");
+    return this.configuredPath.trim() || PathUtils.join((Zotero as any).Profile.dir, "agentclient", "sessions.json");
   }
 
   private async read(): Promise<StoreDocument> {

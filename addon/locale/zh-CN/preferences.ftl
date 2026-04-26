@@ -1,4 +1,4 @@
-pref-title = ACP 侧边栏对话
+pref-title = Zotero Agent Client
 pref-default-agent = 默认 Agent ID
 pref-default-preset = 默认提示词 ID
 pref-session-store = 会话存储路径

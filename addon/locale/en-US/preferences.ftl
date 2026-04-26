@@ -1,4 +1,4 @@
-pref-title = ACP Sidebar Chat
+pref-title = Zotero Agent Client
 pref-default-agent = Default agent ID
 pref-default-preset = Default preset ID
 pref-session-store = Session store path

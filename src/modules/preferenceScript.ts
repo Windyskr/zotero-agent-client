@@ -1,3 +1,3 @@
 export async function registerPrefsScripts(_window: Window) {
-  ztoolkit.log("ACP Chat preferences loaded", _window);
+  ztoolkit.log("Zotero Agent Client preferences loaded", _window);
 }

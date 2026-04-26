@@ -75,7 +75,7 @@ async function onNotify(
     type == "tab" &&
     extraData[ids[0]].type == "reader"
   ) {
-    ztoolkit.log("ACP Chat reader tab selected");
+    ztoolkit.log("Zotero Agent Client reader tab selected");
   } else {
     return;
   }

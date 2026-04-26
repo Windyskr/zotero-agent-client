@@ -1,4 +1,4 @@
-# ACP Sidebar Chat for Zotero
+# Zotero Agent Client
 
 Template-based Zotero plugin for chatting with local ACP agents from the Zotero
 reader sidebar.
@@ -17,13 +17,13 @@ npm run build
 The scaffold build writes the XPI to:
 
 ```text
-.scaffold/build/acp-sidebar-chat.xpi
+.scaffold/build/zotero-agent-client.xpi
 ```
 
 For convenience, the current install test package is also copied to:
 
 ```text
-build/zotero-acp-sidebar-chat-template-0.1.0.xpi
+build/zotero-agent-client-0.1.0.xpi
 ```
 
 ## Scope

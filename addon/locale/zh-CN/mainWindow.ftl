@@ -1,4 +1,4 @@
 acpchat-reader-section-head-text =
-    .label = ACP Chat
+    .label = Agent Client
 acpchat-reader-section-sidenav-tooltip =
-    .tooltiptext = ACP Chat
+    .tooltiptext = Agent Client
