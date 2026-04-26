@@ -1,28 +1,28 @@
-import { App } from "./app";
+import { BasicTool } from "zotero-plugin-toolkit";
+import Addon from "./addon";
+import { config } from "../package.json";
 
-let app: App | null = null;
+const basicTool = new BasicTool();
 
-async function startup(data: { id: string; version: string; rootURI: string }): Promise<void> {
-  app = new App();
-  await app.startup(data);
+// @ts-expect-error - Plugin instance is not typed
+if (!basicTool.getGlobal("Zotero")[config.addonInstance]) {
+  _globalThis.addon = new Addon();
+  defineGlobal("ztoolkit", () => {
+    return _globalThis.addon.data.ztoolkit;
+  });
+  defineGlobal("PathUtils");
+  defineGlobal("IOUtils");
+  defineGlobal("ChromeUtils");
+  // @ts-expect-error - Plugin instance is not typed
+  Zotero[config.addonInstance] = addon;
 }
 
-function onMainWindowLoad({ window: win }: { window: any }): void {
-  app?.addToWindow(win);
+function defineGlobal(name: Parameters<BasicTool["getGlobal"]>[0]): void;
+function defineGlobal(name: string, getter: () => any): void;
+function defineGlobal(name: string, getter?: () => any) {
+  Object.defineProperty(_globalThis, name, {
+    get() {
+      return getter ? getter() : basicTool.getGlobal(name);
+    },
+  });
 }
-
-function onMainWindowUnload({ window: win }: { window: any }): void {
-  app?.removeFromWindow(win);
-}
-
-function shutdown(): void {
-  app?.shutdown();
-  app = null;
-}
-
-Object.assign(globalThis, {
-  startup,
-  onMainWindowLoad,
-  onMainWindowUnload,
-  shutdown
-});

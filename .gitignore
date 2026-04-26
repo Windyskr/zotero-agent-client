@@ -1,6 +1,16 @@
-node_modules/
-dist/
-build/
+# dot files
 .DS_Store
-*.xpi
-coverage/
+
+# Node.js
+node_modules
+pnpm-lock.yaml
+yarn.lock
+
+# TSC
+tsconfig.tsbuildinfo
+
+# Scaffold
+.env
+.scaffold
+build
+logs

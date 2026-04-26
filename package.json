@@ -1,21 +1,63 @@
 {
   "name": "zotero-acp-sidebar-chat",
-  "version": "0.1.0",
-  "description": "A Zotero 8 reader sidebar chat plugin for local ACP agents.",
   "type": "module",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Chat with local ACP agents from Zotero's reader sidebar.",
+  "config": {
+    "addonName": "ACP Sidebar Chat",
+    "addonID": "zotero-acpchat@example.com",
+    "addonRef": "acpchat",
+    "addonInstance": "AcpChat",
+    "prefsPrefix": "extensions.zotero.acpchat"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/local/zotero-acp-sidebar-chat.git"
+  },
+  "author": "Zotero ACP Sidebar Chat contributors",
+  "bugs": {
+    "url": "https://github.com/local/zotero-acp-sidebar-chat/issues"
+  },
+  "homepage": "https://github.com/local/zotero-acp-sidebar-chat#readme",
   "license": "MIT",
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "clean": "rm -rf dist build",
-    "package": "npm run build && node scripts/package.mjs",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "start": "zotero-plugin serve",
+    "build": "zotero-plugin build && tsc --noEmit",
+    "lint:check": "prettier --check . && eslint .",
+    "lint:fix": "prettier --write . && eslint . --fix",
+    "release": "zotero-plugin release",
+    "test": "zotero-plugin test",
+    "update-deps": "npm update --save"
+  },
+  "dependencies": {
+    "zotero-plugin-toolkit": "^5.1.0-beta.13"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
-    "esbuild": "^0.27.2",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.5"
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.10.0",
+    "@zotero-plugin/eslint-config": "^0.6.7",
+    "chai": "^6.2.1",
+    "eslint": "^9.39.2",
+    "mocha": "^11.7.5",
+    "prettier": "^3.7.4",
+    "typescript": "^5.9.3",
+    "zotero-plugin-scaffold": "^0.8.2",
+    "zotero-types": "^4.1.0-beta.4"
+  },
+  "prettier": {
+    "printWidth": 80,
+    "tabWidth": 2,
+    "endOfLine": "lf",
+    "overrides": [
+      {
+        "files": [
+          "*.xhtml"
+        ],
+        "options": {
+          "htmlWhitespaceSensitivity": "css"
+        }
+      }
+    ]
   }
 }

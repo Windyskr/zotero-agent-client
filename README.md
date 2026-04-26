@@ -1,29 +1,33 @@
-# Zotero ACP Sidebar Chat
+# ACP Sidebar Chat for Zotero
 
-An open-source Zotero 8 plugin that adds a reader-side chat panel for local
-ACP-compatible agents such as `codex-acp` and `claude-agent-acp`.
+Template-based Zotero plugin for chatting with local ACP agents from the Zotero
+reader sidebar.
 
-## Scope
+This repository is based on
+[`windingwind/zotero-plugin-template`](https://github.com/windingwind/zotero-plugin-template)
+and uses `zotero-plugin-scaffold` for packaging.
 
-- macOS only for v1.
-- Zotero 8.x only.
-- No login, registration, cloud sync, or hosted backend.
-- Users install ACP adapters themselves and configure the executable path in
-  the plugin preferences.
-
-## Development
+## Build
 
 ```sh
 npm install
-npm test
 npm run build
 ```
 
-The build output is written to `dist/`. Install the plugin by loading or
-packaging that folder as a Zotero XPI.
+The scaffold build writes the XPI to:
 
-## Runtime Defaults
+```text
+.scaffold/build/acp-sidebar-chat.xpi
+```
 
-- Codex ACP command: `codex-acp`
-- Claude ACP command: `claude-agent-acp`
-- Session storage: `Zotero profile/acpchat/sessions.json`
+For convenience, the current install test package is also copied to:
+
+```text
+build/zotero-acp-sidebar-chat-template-0.1.0.xpi
+```
+
+## Scope
+
+- macOS + Zotero 8 first.
+- Local ACP adapters only, such as `codex-acp` and `claude-agent-acp`.
+- No login, registration, cloud service, or hosted backend.

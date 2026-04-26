@@ -1,16 +1,18 @@
 {
   "manifest_version": 2,
-  "name": "ACP Sidebar Chat",
-  "version": "0.1.0",
-  "description": "Chat with local ACP agents from Zotero's reader sidebar.",
-  "homepage_url": "https://github.com/local/zotero-acp-sidebar-chat",
+  "name": "__addonName__",
+  "version": "__buildVersion__",
+  "description": "__description__",
+  "homepage_url": "__homepage__",
+  "author": "__author__",
   "icons": {
-    "48": "chrome/content/icons/acpchat.svg",
-    "96": "chrome/content/icons/acpchat.svg"
+    "48": "content/icons/favicon@0.5x.png",
+    "96": "content/icons/favicon.png"
   },
   "applications": {
     "zotero": {
-      "id": "zotero-acpchat@example.com",
+      "id": "__addonID__",
+      "update_url": "__updateURL__",
       "strict_min_version": "6.999",
       "strict_max_version": "9.9.*"
     }
