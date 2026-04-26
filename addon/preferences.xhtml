@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>ACP Sidebar Chat</title>
+    <link rel="stylesheet" href="content/preferences.css" />
+  </head>
+  <body>
+    <section class="acpchat-prefs">
+      <h1>ACP Sidebar Chat</h1>
+
+      <label>
+        Default agent
+        <select id="default-agent"></select>
+      </label>
+
+      <label>
+        Agent profiles JSON
+        <textarea id="agent-profiles" spellcheck="false"></textarea>
+      </label>
+
+      <label>
+        Prompt presets JSON
+        <textarea id="prompt-presets" spellcheck="false"></textarea>
+      </label>
+
+      <label>
+        Default preset ID
+        <input id="default-preset-id" type="text" />
+      </label>
+
+      <label>
+        Default send template
+        <textarea id="default-template" spellcheck="false"></textarea>
+      </label>
+
+      <label>
+        Session store path
+        <input id="session-store-path" type="text" placeholder="Leave empty for Zotero profile default" />
+      </label>
+
+      <div class="actions">
+        <button id="save" type="button">Save</button>
+        <button id="reset" type="button">Reset defaults</button>
+      </div>
+
+      <p id="status" role="status"></p>
+    </section>
+  </body>
+</html>

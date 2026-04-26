@@ -1,0 +1,80 @@
+.acpchat-panel {
+  color: var(--fill-primary, #202124);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 360px;
+  padding: 8px;
+}
+
+.acpchat-toolbar,
+.acpchat-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.acpchat-toolbar {
+  grid-template-columns: 1fr 1fr;
+}
+
+.acpchat-status {
+  color: var(--fill-secondary, #5f6368);
+  font-size: 12px;
+  grid-column: 1 / -1;
+  min-height: 18px;
+}
+
+.acpchat-messages {
+  border: 1px solid var(--material-border-quinary, #d0d4da);
+  border-radius: 6px;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 190px;
+  overflow: auto;
+  padding: 8px;
+}
+
+.acpchat-message {
+  border-radius: 6px;
+  line-height: 1.4;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+}
+
+.acpchat-message-user {
+  background: #edf4ff;
+}
+
+.acpchat-message-assistant {
+  background: #f4f6f7;
+}
+
+.acpchat-message-tool,
+.acpchat-message-system {
+  color: var(--fill-secondary, #5f6368);
+  font-size: 12px;
+}
+
+.acpchat-input {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.acpchat-button-row {
+  display: flex;
+  gap: 6px;
+}
+
+.acpchat-button-row button {
+  min-height: 28px;
+}
+
+.acpchat-send {
+  flex: 1;
+}
+
+.acpchat-error {
+  color: #b3261e;
+}

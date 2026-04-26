@@ -1,0 +1,21 @@
+{
+  "name": "zotero-acp-sidebar-chat",
+  "version": "0.1.0",
+  "description": "A Zotero 8 reader sidebar chat plugin for local ACP agents.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "clean": "rm -rf dist build",
+    "package": "npm run build && node scripts/package.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "esbuild": "^0.27.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  }
+}
