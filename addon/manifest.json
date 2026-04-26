@@ -5,8 +5,8 @@
   "description": "Chat with local ACP agents from Zotero's reader sidebar.",
   "homepage_url": "https://github.com/local/zotero-acp-sidebar-chat",
   "icons": {
-    "48": "content/icons/acpchat.svg",
-    "96": "content/icons/acpchat.svg"
+    "48": "chrome/content/icons/acpchat.svg",
+    "96": "chrome/content/icons/acpchat.svg"
   },
   "applications": {
     "zotero": {

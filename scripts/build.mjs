@@ -15,14 +15,14 @@ const shared = {
 
 await esbuild.build({
   ...shared,
-  entryPoints: ["src/bootstrap.ts"],
-  outfile: "dist/bootstrap.js",
-  globalName: "ZoteroAcpChatBootstrap"
+  entryPoints: ["src/index.ts"],
+  outfile: "dist/chrome/content/scripts/acpchat.js",
+  globalName: "ZoteroAcpChat"
 });
 
 await esbuild.build({
   ...shared,
   entryPoints: ["src/preferences.ts"],
-  outfile: "dist/content/preferences.js",
+  outfile: "dist/chrome/content/preferences.js",
   globalName: "ZoteroAcpChatPreferences"
 });

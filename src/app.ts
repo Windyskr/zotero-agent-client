@@ -20,8 +20,8 @@ export class App {
       pluginID: id,
       src: `${rootURI}preferences.xhtml`,
       label: "ACP Chat",
-      image: `${rootURI}content/icons/acpchat.svg`,
-      scripts: [`${rootURI}content/preferences.js`]
+      image: `chrome://zotero-acpchat/content/icons/acpchat.svg`,
+      scripts: [`chrome://zotero-acpchat/content/preferences.js`]
     });
 
     this.addToAllWindows();
@@ -50,7 +50,7 @@ export class App {
     link.id = "zotero-acpchat-stylesheet";
     link.type = "text/css";
     link.rel = "stylesheet";
-    link.href = `${this.rootURI}content/acpchat.css`;
+    link.href = `chrome://zotero-acpchat/content/acpchat.css`;
     doc.documentElement.append(link);
   }
 
@@ -80,11 +80,11 @@ export class App {
       pluginID,
       header: {
         l10nID: "zotero-acpchat-section-title",
-        icon: `${this.rootURI}content/icons/acpchat.svg`
+        icon: `chrome://zotero-acpchat/content/icons/acpchat.svg`
       },
       sidenav: {
         l10nID: "zotero-acpchat-section-sidenav-tooltip",
-        icon: `${this.rootURI}content/icons/acpchat.svg`
+        icon: `chrome://zotero-acpchat/content/icons/acpchat.svg`
       },
       onItemChange: ({ tabType, setEnabled }: any) => {
         setEnabled(tabType === "reader");
