@@ -30,4 +30,7 @@ build/zotero-agent-client-0.1.0.xpi
 
 - macOS + Zotero 8 first.
 - Local ACP adapters only, such as `codex-acp` and `claude-agent-acp`.
+- Adapter launch mode is NPX-only:
+  - Codex: `npx -y @zed-industries/codex-acp`
+  - Claude: `npx -y @zed-industries/claude-agent-acp`
 - No login, registration, cloud service, or hosted backend.

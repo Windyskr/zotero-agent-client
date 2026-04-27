@@ -9,8 +9,6 @@ declare namespace _ZoteroTypes {
     PluginPrefsMap: {
       "agentProfiles": string;
       "defaultAgent": string;
-      "promptPresets": string;
-      "defaultPresetId": string;
       "sessionStorePath": string;
       "defaultTemplate": string;
     };

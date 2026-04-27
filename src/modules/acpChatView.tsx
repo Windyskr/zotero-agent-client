@@ -5,7 +5,7 @@ import type {
   ChatRole,
   MessageStatus,
   PdfContext,
-  PromptPreset,
+  SessionConfigOption,
   SessionRecord,
   Settings,
   StatusKind,
@@ -22,14 +22,24 @@ export interface ChatStatus {
 
 export interface SendPromptRequest {
   agentId: string;
+  includePdf: boolean;
   record: SessionRecord;
+  setConfigOptions: (options: SessionConfigOption[]) => void;
   setRecord: (record: SessionRecord) => void;
   setStatus: (status: ChatStatus) => void;
   text: string;
 }
 
+export interface SetConfigOptionRequest {
+  agentId: string;
+  configId: string;
+  sessionId: string;
+  value: string;
+}
+
 export interface NewTopicRequest {
   agentId: string;
+  setConfigOptions: (options: SessionConfigOption[]) => void;
   setRecord: (record: SessionRecord) => void;
   setStatus: (status: ChatStatus) => void;
 }
@@ -41,11 +51,14 @@ export type Localize = (
 ) => string;
 
 export interface AcpChatPanelProps {
-  buildPrompt: (presetId: string) => string;
+  initialConfigOptions: SessionConfigOption[];
   initialRecord: SessionRecord | null;
   initialStatus: ChatStatus;
   l10n: Localize;
   onCancel: (agentId: string) => boolean;
+  onSetConfigOption: (
+    request: SetConfigOptionRequest,
+  ) => Promise<SessionConfigOption[]>;
   onNewTopic: (request: NewTopicRequest) => Promise<void>;
   onSend: (request: SendPromptRequest) => Promise<void>;
   pdf: PdfContext | null;
@@ -60,11 +73,12 @@ export interface AcpChatRoot {
 }
 
 export function AcpChatPanel({
-  buildPrompt,
+  initialConfigOptions,
   initialRecord,
   initialStatus,
   l10n,
   onCancel,
+  onSetConfigOption,
   onNewTopic,
   onSend,
   pdf,
@@ -74,22 +88,40 @@ export function AcpChatPanel({
   const [agentId, setAgentId] = useState(
     initialRecord?.agentId || settings.defaultAgent,
   );
-  const [presetId, setPresetId] = useState(settings.defaultPresetId);
-  const [input, setInput] = useState(() =>
-    pdf ? buildPrompt(settings.defaultPresetId) : "",
-  );
+  const [input, setInput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [record, setRecord] = useState(initialRecord);
   const [status, setStatus] = useState(initialStatus);
+  const [configOptions, setConfigOptions] = useState(initialConfigOptions);
+  const [includePdf, setIncludePdf] = useState(!!pdf);
 
   const selectedAgent = useMemo(
     () => settings.agentProfiles.find((profile) => profile.id === agentId),
     [agentId, settings.agentProfiles],
   );
 
-  const handlePresetChange = (nextPresetId: string) => {
-    setPresetId(nextPresetId);
-    setInput(pdf ? buildPrompt(nextPresetId) : "");
+  const messages = record?.messages ?? [];
+
+  const handleAgentChange = (nextAgentId: string) => {
+    setAgentId(nextAgentId);
+    setConfigOptions([]);
+  };
+
+  const handleNewTopic = async () => {
+    if (!pdf || isRunning) return;
+    setIsRunning(true);
+    try {
+      await onNewTopic({
+        agentId,
+        setConfigOptions,
+        setRecord,
+        setStatus,
+      });
+      setInput("");
+      setIncludePdf(true);
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   const handleSend = async () => {
@@ -115,7 +147,9 @@ export function AcpChatPanel({
     try {
       await onSend({
         agentId,
+        includePdf: !!pdf && includePdf,
         record,
+        setConfigOptions,
         setRecord,
         setStatus,
         text,
@@ -125,7 +159,7 @@ export function AcpChatPanel({
     }
   };
 
-  const handleCancel = () => {
+  const handlePause = () => {
     if (!isRunning) return;
     if (onCancel(agentId)) {
       setStatus({
@@ -135,40 +169,29 @@ export function AcpChatPanel({
     }
   };
 
-  const handleNewTopic = async () => {
-    if (!pdf || isRunning) return;
-    setIsRunning(true);
+  const handleConfigOptionChange = async (configId: string, value: string) => {
+    if (!record?.sessionId || isRunning) return;
     try {
-      await onNewTopic({
+      const nextOptions = await onSetConfigOption({
         agentId,
-        setRecord,
-        setStatus,
+        configId,
+        sessionId: record.sessionId,
+        value,
       });
-      setInput(buildPrompt(presetId));
-    } finally {
-      setIsRunning(false);
+      setConfigOptions(nextOptions);
+    } catch (error) {
+      setStatus({ kind: "error", text: String(error) });
     }
   };
 
-  const messages = record?.messages ?? [];
-
   return (
     <section className={`acpchat-panel${pdf ? "" : " acpchat-panel-no-pdf"}`}>
-      <PanelHeader
-        disableNewTopic={!pdf || isRunning}
-        l10n={l10n}
-        onNewTopic={handleNewTopic}
-        status={status}
-      />
-      <PdfContextCard l10n={l10n} pdf={pdf} />
-      <Controls
+      <TopAgentBar
         agentId={agentId}
         agents={settings.agentProfiles}
         l10n={l10n}
-        onAgentChange={setAgentId}
-        onPresetChange={handlePresetChange}
-        presetId={presetId}
-        presets={settings.promptPresets}
+        onAgentChange={handleAgentChange}
+        status={status}
       />
       <MessageList
         hasPdf={!!pdf}
@@ -178,12 +201,19 @@ export function AcpChatPanel({
       />
       <Composer
         disabled={!pdf}
+        hasPdf={!!pdf}
+        includePdf={includePdf}
         input={input}
         isRunning={isRunning}
         l10n={l10n}
-        onCancel={handleCancel}
+        configOptions={configOptions}
         onInputChange={setInput}
+        onConfigOptionChange={handleConfigOptionChange}
+        onNewTopic={handleNewTopic}
+        onPause={handlePause}
         onSend={handleSend}
+        onToggleAttachment={() => setIncludePdf((current) => !current)}
+        pdf={pdf}
       />
     </section>
   );
@@ -222,112 +252,27 @@ export function createAcpChatRoot(container: HTMLElement): AcpChatRoot {
   };
 }
 
-function PanelHeader({
-  disableNewTopic,
-  l10n,
-  onNewTopic,
-  status,
-}: {
-  disableNewTopic: boolean;
-  l10n: Localize;
-  onNewTopic: () => void;
-  status: ChatStatus;
-}) {
-  return (
-    <header className="acpchat-header">
-      <div className="acpchat-brand">
-        <div className="acpchat-brand-mark">
-          {l10n("acpchat-brand-mark", "AI")}
-        </div>
-        <div className="acpchat-brand-copy">
-          <div className="acpchat-eyebrow">
-            {l10n("acpchat-brand-eyebrow", "Agent Client")}
-          </div>
-          <div className="acpchat-title">
-            {l10n("acpchat-panel-title", "Research Assistant")}
-          </div>
-        </div>
-      </div>
-      <div className="acpchat-header-actions">
-        <button
-          className="acpchat-new-topic"
-          disabled={disableNewTopic}
-          onClick={onNewTopic}
-          type="button"
-        >
-          {l10n("acpchat-new-topic-button", "New topic")}
-        </button>
-        <div className={`acpchat-status-chip is-${status.kind}`}>
-          {status.text}
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function PdfContextCard({
-  l10n,
-  pdf,
-}: {
-  l10n: Localize;
-  pdf: PdfContext | null;
-}) {
-  return (
-    <div
-      className={`acpchat-context-card${
-        pdf ? "" : " acpchat-context-card-missing"
-      }`}
-    >
-      <div className="acpchat-context-label">
-        {pdf
-          ? l10n("acpchat-context-pdf-label", "PDF context")
-          : l10n("acpchat-context-missing-label", "No local PDF")}
-      </div>
-      <div className="acpchat-context-title">
-        {pdf
-          ? pdf.title
-          : l10n(
-              "acpchat-context-missing-title",
-              "No local PDF attachment found",
-            )}
-      </div>
-      <div className="acpchat-context-meta">
-        {pdf
-          ? formatPdfMeta(pdf)
-          : l10n(
-              "acpchat-context-missing-detail",
-              "Open a PDF attachment, or select a parent item that has one.",
-            )}
-      </div>
-    </div>
-  );
-}
-
-function Controls({
+function TopAgentBar({
   agentId,
   agents,
   l10n,
   onAgentChange,
-  onPresetChange,
-  presetId,
-  presets,
+  status,
 }: {
   agentId: string;
   agents: AgentProfile[];
   l10n: Localize;
   onAgentChange: (agentId: string) => void;
-  onPresetChange: (presetId: string) => void;
-  presetId: string;
-  presets: PromptPreset[];
+  status: ChatStatus;
 }) {
   return (
-    <div className="acpchat-controls">
-      <label className="acpchat-control">
-        <span className="acpchat-control-label">
-          {l10n("acpchat-control-agent-label", "Agent")}
-        </span>
+    <header className="acpchat-topbar">
+      <label className="acpchat-topbar-label">
+        {l10n("acpchat-control-agent-label", "Agent")}
+      </label>
+      <div className="acpchat-topbar-main">
         <select
-          className="acpchat-select"
+          className="acpchat-select acpchat-agent-select"
           disabled={!agents.length}
           onChange={(event) => onAgentChange(event.currentTarget.value)}
           value={agents.length ? agentId : ""}
@@ -344,31 +289,11 @@ function Controls({
             </option>
           )}
         </select>
-      </label>
-      <label className="acpchat-control">
-        <span className="acpchat-control-label">
-          {l10n("acpchat-control-preset-label", "Preset")}
-        </span>
-        <select
-          className="acpchat-select"
-          disabled={!presets.length}
-          onChange={(event) => onPresetChange(event.currentTarget.value)}
-          value={presets.length ? presetId : ""}
-        >
-          {presets.length ? (
-            presets.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.name}
-              </option>
-            ))
-          ) : (
-            <option value="">
-              {l10n("acpchat-no-presets-option", "No presets configured")}
-            </option>
-          )}
-        </select>
-      </label>
-    </div>
+        <div className={`acpchat-status-chip is-${status.kind}`}>
+          {status.text}
+        </div>
+      </div>
+    </header>
   );
 }
 
@@ -383,8 +308,10 @@ function MessageList({
   messages: ChatMessage[];
   renderMarkdown: (text: string) => string;
 }) {
-  const showEmpty =
-    hasPdf && !messages.some((message) => message.role !== "system");
+  const visibleMessages = messages.filter(
+    (message) => !isAttachedPdfSystemMessage(message),
+  );
+  const showEmpty = hasPdf && visibleMessages.length === 0;
 
   return (
     <div className="acpchat-messages">
@@ -393,7 +320,7 @@ function MessageList({
       ) : (
         <>
           {showEmpty && <EmptyState kind="no-history" l10n={l10n} />}
-          {messages.map((message) => (
+          {visibleMessages.map((message) => (
             <MessageItem
               key={message.id}
               l10n={l10n}
@@ -405,6 +332,11 @@ function MessageList({
       )}
     </div>
   );
+}
+
+function isAttachedPdfSystemMessage(message: ChatMessage): boolean {
+  if (message.role !== "system") return false;
+  return /(?:Attached PDF|已附加 PDF)[:：]/.test(message.text);
 }
 
 function EmptyState({
@@ -429,7 +361,7 @@ function EmptyState({
             )
           : l10n(
               "acpchat-empty-no-history-detail",
-              "Choose a preset or ask a focused question about this paper.",
+              "Ask a focused question about this paper to begin.",
             )}
       </div>
     </div>
@@ -489,30 +421,60 @@ function MessageItem({
 
 function Composer({
   disabled,
+  hasPdf,
+  includePdf,
   input,
   isRunning,
   l10n,
-  onCancel,
+  configOptions,
   onInputChange,
+  onConfigOptionChange,
+  onNewTopic,
+  onPause,
   onSend,
+  onToggleAttachment,
+  pdf,
 }: {
   disabled: boolean;
+  hasPdf: boolean;
+  includePdf: boolean;
   input: string;
   isRunning: boolean;
+  configOptions: SessionConfigOption[];
   l10n: Localize;
-  onCancel: () => void;
   onInputChange: (input: string) => void;
+  onConfigOptionChange: (configId: string, value: string) => void;
+  onNewTopic: () => void;
+  onPause: () => void;
   onSend: () => Promise<void>;
+  onToggleAttachment: () => void;
+  pdf: PdfContext | null;
 }) {
+  const modelOption = pickConfigOption(configOptions, "model");
+  const thoughtOption = pickConfigOption(configOptions, "thought_level");
+
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       event.preventDefault();
-      if (!disabled && !isRunning) void onSend();
+      if (isRunning) {
+        onPause();
+      } else if (!disabled) {
+        void onSend();
+      }
     }
   };
 
   return (
     <div className="acpchat-composer">
+      {includePdf && pdf && (
+        <div className="acpchat-attachments">
+          <div className="acpchat-attachment-pill">
+            <span className="acpchat-attachment-type">PDF</span>
+            <span className="acpchat-attachment-name">{pdf.fileName}</span>
+          </div>
+        </div>
+      )}
+
       <textarea
         className="acpchat-input"
         cols={20}
@@ -530,31 +492,74 @@ function Composer({
                 "Ask about the argument, method, evidence, or next experiments...",
               )
         }
-        wrap="soft"
         value={input}
+        wrap="soft"
       />
-      <div className="acpchat-composer-footer">
-        <div className="acpchat-composer-hint">
-          {l10n("acpchat-composer-hint", "Cmd/Ctrl + Enter to send")}
-        </div>
-        <div className="acpchat-button-row">
-          <button
-            className="acpchat-send"
+
+      <div className="acpchat-actions-row">
+        <button
+          className={`acpchat-attach-button${includePdf ? " is-active" : ""}`}
+          disabled={!hasPdf || isRunning}
+          onClick={onToggleAttachment}
+          title={l10n("acpchat-attach-button-title", "Add attachment")}
+          type="button"
+        >
+          +
+        </button>
+
+        <div className="acpchat-actions-spacer"></div>
+
+        <button
+          className="acpchat-inline-action"
+          disabled={disabled || isRunning}
+          onClick={onNewTopic}
+          type="button"
+        >
+          {l10n("acpchat-new-topic-button", "New topic")}
+        </button>
+        {modelOption && (
+          <select
+            className="acpchat-select acpchat-select-compact"
             disabled={disabled || isRunning}
-            onClick={() => void onSend()}
-            type="button"
+            onChange={(event) =>
+              onConfigOptionChange(modelOption.id, event.currentTarget.value)
+            }
+            value={modelOption.currentValue}
           >
-            {l10n("acpchat-send-button", "Send")}
-          </button>
-          <button
-            className="acpchat-cancel"
-            disabled={!isRunning}
-            onClick={onCancel}
-            type="button"
+            {modelOption.options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        )}
+        {thoughtOption && (
+          <select
+            className="acpchat-select acpchat-select-compact"
+            disabled={disabled || isRunning}
+            onChange={(event) =>
+              onConfigOptionChange(thoughtOption.id, event.currentTarget.value)
+            }
+            value={thoughtOption.currentValue}
           >
-            {l10n("acpchat-cancel-button", "Stop")}
-          </button>
-        </div>
+            {thoughtOption.options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <button
+          className={`acpchat-send${isRunning ? " is-pausing" : ""}`}
+          disabled={disabled && !isRunning}
+          onClick={() => (isRunning ? onPause() : void onSend())}
+          type="button"
+        >
+          {isRunning
+            ? l10n("acpchat-pause-button", "Pause")
+            : l10n("acpchat-send-button", "Send")}
+        </button>
       </div>
     </div>
   );
@@ -595,15 +600,19 @@ function formatMessageTime(createdAt: string): string {
   });
 }
 
-function formatPdfMeta(pdf: PdfContext): string {
-  return [pdf.fileName, pdf.year, formatFileSize(pdf.fileSize)]
-    .filter((part) => !!part)
-    .join(" - ");
-}
-
-function formatFileSize(size: number | null): string {
-  if (!size) return "";
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+function pickConfigOption(
+  options: SessionConfigOption[],
+  targetCategory: string,
+): SessionConfigOption | null {
+  const byCategory = options.find(
+    (option) => option.category === targetCategory && option.type === "select",
+  );
+  if (byCategory) return byCategory;
+  return (
+    options.find(
+      (option) =>
+        option.type === "select" &&
+        option.id.toLowerCase() === targetCategory.toLowerCase(),
+    ) ?? null
+  );
 }

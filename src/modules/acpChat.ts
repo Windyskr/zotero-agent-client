@@ -4,6 +4,7 @@ import type {
   AcpChatRoot,
   ChatStatus,
   NewTopicRequest,
+  SetConfigOptionRequest,
   SendPromptRequest,
 } from "./acpChatView";
 
@@ -17,19 +18,27 @@ export interface AgentProfile {
   env: Record<string, string>;
 }
 
-export interface PromptPreset {
-  id: string;
-  name: string;
-  prompt: string;
-}
-
 export interface Settings {
   agentProfiles: AgentProfile[];
   defaultAgent: string;
-  promptPresets: PromptPreset[];
-  defaultPresetId: string;
   sessionStorePath: string;
   defaultTemplate: string;
+}
+
+export interface SessionConfigOptionValue {
+  value: string;
+  name: string;
+  description?: string;
+}
+
+export interface SessionConfigOption {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  type: "select";
+  currentValue: string;
+  options: SessionConfigOptionValue[];
 }
 
 export interface ChatMessage {
@@ -78,6 +87,22 @@ interface FluentPattern {
 
 const PANE_ID = "acpchat-reader";
 const PREF_PREFIX = config.prefsPrefix;
+const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
+  {
+    id: "codex",
+    name: "Codex ACP",
+    command: "npx",
+    args: ["-y", "@zed-industries/codex-acp"],
+    env: {},
+  },
+  {
+    id: "claude",
+    name: "Claude ACP",
+    command: "npx",
+    args: ["-y", "@zed-industries/claude-agent-acp"],
+    env: {},
+  },
+];
 
 const clientPool = new Map<string, AcpClient>();
 const markdown = new MarkdownIt({
@@ -160,13 +185,19 @@ function injectStyles(): void {
         box-sizing: border-box;
       }
       .acpchat-host {
+        contain: inline-size;
+        inline-size: 100%;
         max-width: 100%;
         min-width: 0;
+        overflow-x: clip;
         overflow-x: hidden;
       }
       .acpchat-host > * {
+        inline-size: 100%;
         max-width: 100%;
         min-width: 0;
+        overflow-x: clip;
+        overflow-x: hidden;
       }
       .acpchat-panel {
         --acpchat-accent: #2563eb;
@@ -180,13 +211,16 @@ function injectStyles(): void {
         --acpchat-danger: #b3261e;
         background: transparent;
         color: var(--acpchat-text);
-        display: flex;
-        flex-direction: column;
+        contain: inline-size;
+        display: grid;
         font: 12px/1.42 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
         gap: 8px;
+        grid-template-columns: minmax(0, 1fr);
+        inline-size: 100%;
         max-width: 100%;
         min-height: 360px;
         min-width: 0;
+        overflow-x: clip;
         overflow-x: hidden;
         padding: 6px 8px 8px;
         width: 100%;
@@ -196,6 +230,7 @@ function injectStyles(): void {
       .acpchat-panel textarea {
         font: inherit !important;
       }
+      .acpchat-topbar,
       .acpchat-header,
       .acpchat-context-card,
       .acpchat-messages,
@@ -205,8 +240,34 @@ function injectStyles(): void {
         background: var(--acpchat-surface);
         border: 1px solid var(--acpchat-border);
         border-radius: 8px;
+        inline-size: 100%;
         max-width: 100%;
         min-width: 0;
+        overflow-x: clip;
+        overflow-x: hidden;
+      }
+      .acpchat-topbar {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 0;
+        padding: 7px 8px;
+      }
+      .acpchat-topbar-label {
+        color: var(--acpchat-muted);
+        font-size: 10px;
+        font-weight: 650;
+        line-height: 1.2;
+      }
+      .acpchat-topbar-main {
+        align-items: center;
+        display: grid;
+        gap: 6px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        min-width: 0;
+      }
+      .acpchat-agent-select {
+        width: 100%;
       }
       .acpchat-header {
         align-items: center;
@@ -398,14 +459,17 @@ function injectStyles(): void {
         flex: 1;
         flex-direction: column;
         gap: 8px;
+        inline-size: 100%;
         max-height: min(44vh, 360px);
         max-width: 100%;
         min-height: 180px;
         min-width: 0;
         overflow: auto;
+        overflow-x: clip;
         overflow-x: hidden;
         overflow-y: auto;
         padding: 8px;
+        width: 100%;
       }
       .acpchat-empty {
         background: var(--acpchat-surface-muted);
@@ -423,19 +487,22 @@ function injectStyles(): void {
         margin-top: 3px;
       }
       .acpchat-message {
+        contain: inline-size;
         display: flex;
         flex-direction: column;
         gap: 3px;
         line-height: 1.45;
-        max-width: 96%;
+        max-width: 100%;
         min-width: 0;
+        overflow-x: clip;
+        overflow-x: hidden;
         overflow-wrap: anywhere;
         width: 100%;
       }
       .acpchat-message-user {
-        align-self: flex-end;
-        max-width: 92%;
-        width: auto;
+        align-self: stretch;
+        max-width: 100%;
+        width: 100%;
       }
       .acpchat-message-assistant,
       .acpchat-message-tool,
@@ -480,9 +547,11 @@ function injectStyles(): void {
         word-break: break-word;
       }
       .acpchat-message-user .acpchat-message-body {
+        align-self: flex-end;
         background: var(--acpchat-accent-soft);
         border-color: rgba(37, 99, 235, 0.15);
         color: var(--acpchat-text);
+        max-width: 92%;
       }
       .acpchat-message-assistant .acpchat-message-body {
         background: var(--acpchat-surface);
@@ -567,24 +636,69 @@ function injectStyles(): void {
         padding: 3px 5px;
       }
       .acpchat-composer {
+        contain: inline-size;
         display: flex;
         flex-direction: column;
         gap: 6px;
+        inline-size: 100%;
         max-width: 100%;
         min-width: 0;
+        overflow-x: clip;
+        overflow-x: hidden;
         padding: 7px;
+        width: 100%;
+      }
+      .acpchat-attachments {
+        display: flex;
+        inline-size: 100%;
+        min-width: 0;
+        overflow-x: clip;
+        overflow-x: hidden;
+        width: 100%;
+      }
+      .acpchat-attachment-pill {
+        align-items: center;
+        background: var(--acpchat-surface-muted);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 999px;
+        display: inline-flex;
+        gap: 6px;
+        inline-size: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        padding: 3px 8px;
+        width: 100%;
+      }
+      .acpchat-attachment-type {
+        color: var(--acpchat-accent);
+        font-size: 9px;
+        font-weight: 700;
+      }
+      .acpchat-attachment-name {
+        color: var(--acpchat-muted);
+        font-size: 10px;
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .acpchat-input {
         display: block;
+        inline-size: 100%;
         line-height: 1.4;
         max-height: 148px;
         max-width: 100%;
         min-height: 68px;
+        min-width: 0;
         overflow: hidden auto;
+        overflow-x: clip;
         overflow-x: hidden;
         overflow-wrap: anywhere;
         padding: 6px 7px;
         resize: vertical;
+        width: 100%;
         white-space: pre-wrap !important;
         word-break: break-word;
       }
@@ -596,46 +710,74 @@ function injectStyles(): void {
       .acpchat-input:disabled {
         opacity: 0.64;
       }
-      .acpchat-composer-footer {
+      .acpchat-actions-row {
         align-items: center;
         display: flex;
+        flex-wrap: wrap;
         gap: 6px;
-        justify-content: space-between;
+        inline-size: 100%;
         max-width: 100%;
         min-width: 0;
+        overflow-x: clip;
+        overflow-x: hidden;
+        width: 100%;
       }
-      .acpchat-composer-hint {
-        color: var(--acpchat-muted);
-        min-width: 0;
-        overflow-wrap: anywhere;
-        font-size: 10px;
-        line-height: 1.25;
-      }
-      .acpchat-button-row {
-        display: flex;
-        flex: 0 0 auto;
-        gap: 5px;
+      .acpchat-actions-spacer {
+        flex: 1 1 auto;
         min-width: 0;
       }
-      .acpchat-send,
-      .acpchat-cancel {
+      .acpchat-attach-button {
+        align-items: center;
+        background: var(--acpchat-surface-muted);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 999px;
+        color: var(--acpchat-text);
+        display: inline-flex;
+        font-size: 18px;
+        height: 30px;
+        justify-content: center;
+        min-width: 0;
+        width: 30px;
+      }
+      .acpchat-attach-button.is-active {
+        border-color: var(--acpchat-accent-border);
+        color: var(--acpchat-accent);
+      }
+      .acpchat-inline-action {
+        background: var(--acpchat-surface-muted);
+        border: 1px solid var(--acpchat-border);
         border-radius: 6px;
+        color: var(--acpchat-muted);
+        flex: 0 0 auto;
+        font-size: 10px;
+        font-weight: 600;
+        min-height: 26px;
+        padding: 2px 8px;
+      }
+      .acpchat-select-compact {
+        flex: 0 1 92px;
+        max-width: 92px;
+        min-height: 26px;
+        min-width: 0;
+        width: 92px;
+      }
+      .acpchat-send {
+        border-radius: 6px;
+        flex: 0 0 auto;
         font-weight: 600;
         min-height: 26px;
         padding: 2px 9px;
-      }
-      .acpchat-send {
         background: var(--acpchat-accent);
         border: 1px solid var(--acpchat-accent);
         color: #ffffff;
       }
+      .acpchat-send.is-pausing {
+        background: #fff4dc;
+        border-color: #f1d18a;
+        color: #8a5a00;
+      }
       .acpchat-send:disabled {
         opacity: 0.5;
-      }
-      .acpchat-cancel {
-        background: var(--acpchat-surface);
-        border: 1px solid var(--acpchat-border);
-        color: var(--acpchat-muted);
       }
       .acpchat-loading-card,
       .acpchat-fatal {
@@ -673,15 +815,11 @@ function injectStyles(): void {
         50% { opacity: 1; transform: scale(1.12); }
       }
       @media (max-width: 260px) {
-        .acpchat-controls {
+        .acpchat-topbar-main {
           grid-template-columns: 1fr;
         }
-        .acpchat-composer-footer {
-          align-items: stretch;
-          flex-direction: column;
-        }
-        .acpchat-button-row {
-          justify-content: flex-end;
+        .acpchat-actions-spacer {
+          display: none;
         }
       }
       @media (prefers-color-scheme: dark) {
@@ -800,6 +938,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
   const initialRecord = pdf
     ? await getOrCreateRecord(store, pdf, settings.defaultAgent)
     : null;
+  const initialConfigOptions: SessionConfigOption[] = [];
   const initialStatus: ChatStatus = pdf
     ? {
         kind: "ready",
@@ -810,25 +949,11 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
         text: getMainWindowString("acpchat-status-no-pdf", "No PDF"),
       };
 
-  const buildPrompt = (presetId: string) => {
-    if (!pdf) return "";
-    const preset = settings.promptPresets.find(
-      (candidate) => candidate.id === presetId,
-    );
-    return renderTemplate(settings.defaultTemplate, {
-      title: pdf.title,
-      year: pdf.year,
-      prompt: renderTemplate(preset?.prompt ?? "", {
-        title: pdf.title,
-        year: pdf.year,
-        prompt: "",
-      }),
-    });
-  };
-
   const onSend = async ({
     agentId,
+    includePdf,
     record,
+    setConfigOptions,
     setRecord,
     setStatus,
     text,
@@ -862,6 +987,13 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
     const client = getClient(profile);
     const removeUpdate = client.onUpdate((update) => {
       if (!activeSessionId || update.sessionId !== activeSessionId) return;
+      if (
+        update.update?.sessionUpdate === "config_option_update" &&
+        Array.isArray(update.update?.configOptions)
+      ) {
+        setConfigOptions(normalizeConfigOptions(update.update.configOptions));
+        return;
+      }
       nextRecord = applyAcpUpdate(
         nextRecord,
         assistantMessage.id,
@@ -882,10 +1014,12 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
           },
         ),
       });
-      activeSessionId = await client.loadOrCreateSession(
-        nextRecord.sessionId,
+      const session = await client.loadOrCreateSession(
+        nextRecord.agentId === profile.id ? nextRecord.sessionId : undefined,
         pdf.cwd,
       );
+      setConfigOptions(session.configOptions);
+      activeSessionId = session.sessionId;
       nextRecord = {
         ...nextRecord,
         sessionId: activeSessionId,
@@ -900,7 +1034,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
 
       const response = await client.sendPrompt(
         activeSessionId,
-        makePromptContent(text, pdf),
+        makePromptContent(text, pdf, includePdf),
       );
       nextRecord = markMessage(
         nextRecord,
@@ -944,6 +1078,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
 
   const onNewTopic = async ({
     agentId,
+    setConfigOptions,
     setRecord,
     setStatus,
   }: NewTopicRequest) => {
@@ -951,6 +1086,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
     activeSessionId = null;
     const nextRecord = makeInitialRecord(pdf, agentId);
     await store.upsert(nextRecord);
+    setConfigOptions([]);
     setRecord(nextRecord);
     setStatus({
       kind: "ready",
@@ -961,13 +1097,35 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
     });
   };
 
+  const onSetConfigOption = async ({
+    agentId,
+    configId,
+    sessionId,
+    value,
+  }: SetConfigOptionRequest): Promise<SessionConfigOption[]> => {
+    const profile = settings.agentProfiles.find(
+      (candidate) => candidate.id === agentId,
+    );
+    if (!profile) {
+      throw new Error(
+        getMainWindowString(
+          "acpchat-error-invalid-agent",
+          "Select a valid ACP agent",
+        ),
+      );
+    }
+    const client = getClient(profile);
+    return await client.setSessionConfigOption(sessionId, configId, value);
+  };
+
   if (panelRoots.get(body) !== root) return;
   root.renderPanel({
-    buildPrompt,
+    initialConfigOptions,
     initialRecord,
     initialStatus,
     l10n: getMainWindowString,
     onCancel,
+    onSetConfigOption,
     onNewTopic,
     onSend,
     pdf,
@@ -1024,11 +1182,15 @@ function renderPlainError(body: HTMLElement, error: unknown): void {
 }
 
 function getSettings(): Settings {
+  const configuredProfiles = normalizeAgentProfiles(
+    getJson("agentProfiles", []),
+  );
+  const agentProfiles = configuredProfiles.length
+    ? configuredProfiles
+    : DEFAULT_AGENT_PROFILES;
   return {
-    agentProfiles: getJson("agentProfiles", []),
+    agentProfiles,
     defaultAgent: getString("defaultAgent", "codex"),
-    promptPresets: getJson("promptPresets", []),
-    defaultPresetId: getString("defaultPresetId", "summary"),
     sessionStorePath: getString("sessionStorePath", ""),
     defaultTemplate: getString("defaultTemplate", "{{prompt}}"),
   };
@@ -1046,6 +1208,72 @@ function getJson<T>(name: string, fallback: T): T {
     Zotero.logError(error as Error);
     return fallback;
   }
+}
+
+function normalizeAgentProfiles(profiles: unknown): AgentProfile[] {
+  if (!Array.isArray(profiles)) return [];
+  const normalized: AgentProfile[] = [];
+  for (const profile of profiles) {
+    if (
+      !profile ||
+      typeof profile !== "object" ||
+      typeof (profile as AgentProfile).id !== "string" ||
+      typeof (profile as AgentProfile).name !== "string" ||
+      typeof (profile as AgentProfile).command !== "string" ||
+      !Array.isArray((profile as AgentProfile).args) ||
+      typeof (profile as AgentProfile).env !== "object"
+    ) {
+      continue;
+    }
+    try {
+      normalized.push(normalizeAgentProfile(profile as AgentProfile));
+    } catch (error) {
+      Zotero.debug(`[acpchat] skip invalid agent profile: ${String(error)}`);
+    }
+  }
+  return normalized;
+}
+
+function normalizeAgentProfile(profile: AgentProfile): AgentProfile {
+  const command = profile.command.trim();
+  if (command !== "npx") {
+    throw new Error(
+      `NPX-only mode: unsupported agent command "${profile.command}".`,
+    );
+  }
+  const args = (profile.args ?? []).filter(
+    (arg): arg is string => typeof arg === "string" && !!arg.trim(),
+  );
+  const defaultPackage = defaultNpxPackageForProfile(profile.id);
+  const normalizedArgs =
+    args.length > 0
+      ? normalizeNpxArgs(args)
+      : defaultPackage
+        ? ["-y", defaultPackage]
+        : [];
+  if (!normalizedArgs.find((arg) => !arg.startsWith("-"))) {
+    throw new Error(
+      `NPX-only mode: missing package name in args for agent "${profile.id}".`,
+    );
+  }
+  return {
+    ...profile,
+    command: "npx",
+    args: normalizedArgs,
+  };
+}
+
+function defaultNpxPackageForProfile(profileId: string): string | null {
+  if (profileId === "codex") return "@zed-industries/codex-acp";
+  if (profileId === "claude") return "@zed-industries/claude-agent-acp";
+  return null;
+}
+
+function normalizeNpxArgs(args: string[]): string[] {
+  const clean = args.map((arg) => arg.trim()).filter((arg) => !!arg);
+  if (!clean.length) return clean;
+  if (clean[0] === "-y" || clean[0] === "--yes") return clean;
+  return ["-y", ...clean];
 }
 
 async function resolvePdfContext(item: any): Promise<PdfContext | null> {
@@ -1095,7 +1323,12 @@ function isPdf(item: any): boolean {
   );
 }
 
-function makePromptContent(text: string, pdf: PdfContext): any[] {
+function makePromptContent(
+  text: string,
+  pdf: PdfContext,
+  includePdf: boolean,
+): any[] {
+  if (!includePdf) return [{ type: "text", text }];
   return [
     { type: "text", text },
     {
@@ -1124,12 +1357,19 @@ class AcpClient {
 
   async connect(): Promise<any> {
     if (this.initializeResult) return this.initializeResult;
+    const args = normalizeNpxArgs(this.profile.args ?? []);
+    const packageArg = args.find((arg) => !arg.startsWith("-"));
+    if (!packageArg) {
+      throw new Error(
+        "NPX mode requires a package name in agentProfiles.args.",
+      );
+    }
     const command = await resolveExecutableCommand(
-      this.profile.command,
+      "npx",
       this.profile.env ?? {},
     );
     const environment = buildProcessEnvironment(this.profile.env ?? {});
-    const options: any = { command, arguments: this.profile.args ?? [] };
+    const options: any = { command, arguments: args };
     if (Object.keys(environment).length) {
       options.environment = environment;
       options.environmentAppend = true;
@@ -1158,20 +1398,39 @@ class AcpClient {
   async loadOrCreateSession(
     recordedSessionId: string | undefined,
     cwd: string,
-  ): Promise<string> {
+  ): Promise<{ sessionId: string; configOptions: SessionConfigOption[] }> {
     const init = await this.connect();
     if (recordedSessionId && init.agentCapabilities?.loadSession) {
-      await this.request(
+      const result = await this.request(
         "session/load",
         { sessionId: recordedSessionId, cwd, mcpServers: [] },
         120000,
       );
-      return recordedSessionId;
+      return {
+        sessionId: recordedSessionId,
+        configOptions: normalizeConfigOptions(result?.configOptions),
+      };
     }
     const result = await this.request("session/new", { cwd, mcpServers: [] });
     if (!result.sessionId)
       throw new Error("ACP agent did not return a sessionId");
-    return result.sessionId;
+    return {
+      sessionId: result.sessionId,
+      configOptions: normalizeConfigOptions(result?.configOptions),
+    };
+  }
+
+  async setSessionConfigOption(
+    sessionId: string,
+    configId: string,
+    value: string,
+  ): Promise<SessionConfigOption[]> {
+    const result = await this.request("session/set_config_option", {
+      sessionId,
+      configId,
+      value,
+    });
+    return normalizeConfigOptions(result?.configOptions);
   }
 
   sendPrompt(sessionId: string, prompt: any[]): Promise<any> {
@@ -1405,6 +1664,55 @@ function applyAcpUpdate(
   return record;
 }
 
+function normalizeConfigOptions(raw: unknown): SessionConfigOption[] {
+  if (!Array.isArray(raw)) return [];
+  const normalized: SessionConfigOption[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const option = item as Record<string, unknown>;
+    if (option.type !== "select") continue;
+    const id = typeof option.id === "string" ? option.id : "";
+    const name = typeof option.name === "string" ? option.name : "";
+    const currentValue =
+      typeof option.currentValue === "string" ? option.currentValue : "";
+    const values = Array.isArray(option.options)
+      ? option.options
+          .map((entry) => {
+            if (!entry || typeof entry !== "object") return null;
+            const value = entry as Record<string, unknown>;
+            if (
+              typeof value.value !== "string" ||
+              typeof value.name !== "string"
+            ) {
+              return null;
+            }
+            return {
+              value: value.value,
+              name: value.name,
+              description:
+                typeof value.description === "string"
+                  ? value.description
+                  : undefined,
+            };
+          })
+          .filter((value) => !!value)
+      : [];
+    if (!id || !name || !currentValue || !values.length) continue;
+    normalized.push({
+      id,
+      name,
+      description:
+        typeof option.description === "string" ? option.description : undefined,
+      category:
+        typeof option.category === "string" ? option.category : undefined,
+      type: "select",
+      currentValue,
+      options: values as SessionConfigOptionValue[],
+    });
+  }
+  return normalized;
+}
+
 function markMessage(
   record: SessionRecord,
   id: string,
@@ -1550,8 +1858,8 @@ async function resolveExecutableCommand(
 
   throw new Error(
     `Executable not found: ${normalizedCommand}. ` +
-      "Use an absolute path in agentProfiles.command, " +
-      "or set agentProfiles.env.PATH to include the executable directory.",
+      "NPX-only mode requires npx in PATH. " +
+      "Install Node.js/npm and ensure npx is available to Zotero.",
   );
 }
 
