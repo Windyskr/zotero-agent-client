@@ -1,9 +1,10 @@
 import { config } from "../../package.json";
 import MarkdownIt from "markdown-it";
+import type { AcpChatRoot, ChatStatus, SendPromptRequest } from "./acpChatView";
 
-type ChatRole = "user" | "assistant" | "tool" | "system";
+export type ChatRole = "user" | "assistant" | "tool" | "system";
 
-interface AgentProfile {
+export interface AgentProfile {
   id: string;
   name: string;
   command: string;
@@ -11,13 +12,13 @@ interface AgentProfile {
   env: Record<string, string>;
 }
 
-interface PromptPreset {
+export interface PromptPreset {
   id: string;
   name: string;
   prompt: string;
 }
 
-interface Settings {
+export interface Settings {
   agentProfiles: AgentProfile[];
   defaultAgent: string;
   promptPresets: PromptPreset[];
@@ -26,7 +27,7 @@ interface Settings {
   defaultTemplate: string;
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
   role: ChatRole;
   text: string;
@@ -34,7 +35,7 @@ interface ChatMessage {
   status?: "streaming" | "done" | "error" | "cancelled";
 }
 
-interface SessionRecord {
+export interface SessionRecord {
   key: string;
   agentId: string;
   sessionId?: string;
@@ -44,7 +45,7 @@ interface SessionRecord {
   updatedAt: string;
 }
 
-interface PdfContext {
+export interface PdfContext {
   itemID: number;
   libraryID: number;
   sourceItemID: number;
@@ -62,6 +63,14 @@ interface StoreDocument {
   records: SessionRecord[];
 }
 
+export type MessageStatus = NonNullable<ChatMessage["status"]>;
+export type StatusKind = "ready" | "busy" | "success" | "error" | "muted";
+
+interface FluentPattern {
+  value: string | null;
+  attributes: Array<{ name: string; value: string }> | null;
+}
+
 const PANE_ID = "acpchat-reader";
 const PREF_PREFIX = config.prefsPrefix;
 
@@ -72,7 +81,18 @@ const markdown = new MarkdownIt({
   linkify: true,
   typographer: false,
 });
+const renderMarkdownLink =
+  markdown.renderer.rules.link_open ??
+  ((tokens, index, options, _env, self) =>
+    self.renderToken(tokens, index, options));
+markdown.renderer.rules.link_open = (tokens, index, options, env, self) => {
+  tokens[index].attrSet("target", "_blank");
+  tokens[index].attrSet("rel", "noreferrer");
+  return renderMarkdownLink(tokens, index, options, env, self);
+};
 let toolbarHandler: ((event: any) => void) | null = null;
+let mainWindowL10n: any | null = null;
+const panelRoots = new Map<HTMLElement, AcpChatRoot>();
 
 export function registerAcpChat(): void {
   injectStyles();
@@ -110,6 +130,10 @@ export function unregisterAcpChat(): void {
     client.close();
   }
   clientPool.clear();
+  for (const root of panelRoots.values()) {
+    root.unmount();
+  }
+  panelRoots.clear();
   for (const win of Zotero.getMainWindows()) {
     win.document.getElementById("acpchat-style")?.remove();
   }
@@ -118,38 +142,538 @@ export function unregisterAcpChat(): void {
 function injectStyles(): void {
   for (const win of Zotero.getMainWindows()) {
     const doc = win.document;
-    if (doc.getElementById("acpchat-style")) continue;
-    const style = doc.createElement("style");
-    style.id = "acpchat-style";
+    let style = doc.getElementById("acpchat-style") as HTMLStyleElement | null;
+    if (!style) {
+      style = doc.createElement("style");
+      style.id = "acpchat-style";
+      doc.documentElement?.append(style);
+    }
     style.textContent = `
-      .acpchat-panel { display: flex; flex-direction: column; gap: 8px; min-height: 360px; padding: 8px; }
-      .acpchat-toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-      .acpchat-status { color: var(--fill-secondary, #5f6368); font-size: 12px; grid-column: 1 / -1; min-height: 18px; }
-      .acpchat-messages { border: 1px solid var(--material-border-quinary, #d0d4da); border-radius: 6px; display: flex; flex: 1; flex-direction: column; gap: 8px; min-height: 190px; overflow: auto; padding: 8px; }
-      .acpchat-message { border-radius: 6px; line-height: 1.45; overflow-wrap: anywhere; padding: 6px 8px; }
-      .acpchat-message-user { background: #edf4ff; }
-      .acpchat-message-assistant { background: #f4f6f7; }
-      .acpchat-message-tool, .acpchat-message-system { color: var(--fill-secondary, #5f6368); font-size: 12px; }
-      .acpchat-message p { margin: 0 0 0.55em; }
-      .acpchat-message p:last-child { margin-bottom: 0; }
-      .acpchat-message ul, .acpchat-message ol { margin: 0.35em 0 0.55em 1.4em; padding: 0; }
-      .acpchat-message li { margin: 0.15em 0; }
-      .acpchat-message pre { background: rgba(0, 0, 0, 0.06); border-radius: 5px; margin: 0.5em 0; max-width: 100%; overflow: auto; padding: 7px; }
-      .acpchat-message code { background: rgba(0, 0, 0, 0.06); border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; padding: 0 3px; }
-      .acpchat-message pre code { background: transparent; padding: 0; }
-      .acpchat-message blockquote { border-left: 3px solid var(--material-border-quinary, #d0d4da); color: var(--fill-secondary, #5f6368); margin: 0.5em 0; padding-left: 8px; }
-      .acpchat-message table { border-collapse: collapse; display: block; margin: 0.5em 0; max-width: 100%; overflow: auto; }
-      .acpchat-message th, .acpchat-message td { border: 1px solid var(--material-border-quinary, #d0d4da); padding: 3px 6px; }
-      .acpchat-input { min-height: 72px; resize: vertical; }
-      .acpchat-button-row { display: flex; gap: 6px; }
-      .acpchat-send { flex: 1; }
-      .acpchat-error { color: #b3261e; }
-      .acpchat-toolbar-button { align-items: center; display: inline-flex; justify-content: center; min-width: 28px; min-height: 28px; }
+      .acpchat-panel,
+      .acpchat-panel * {
+        box-sizing: border-box;
+      }
+      .acpchat-host {
+        max-width: 100%;
+        min-width: 0;
+        overflow-x: hidden;
+      }
+      .acpchat-host > * {
+        max-width: 100%;
+        min-width: 0;
+      }
+      .acpchat-panel {
+        --acpchat-accent: #2563eb;
+        --acpchat-accent-soft: #eaf2ff;
+        --acpchat-accent-border: #b9d2ff;
+        --acpchat-surface: var(--material-background, #ffffff);
+        --acpchat-surface-muted: var(--material-mix-quinary, #f6f7f8);
+        --acpchat-border: var(--material-border-quinary, #d8dce2);
+        --acpchat-text: var(--fill-primary, #202124);
+        --acpchat-muted: var(--fill-secondary, #6b7280);
+        --acpchat-danger: #b3261e;
+        background: transparent;
+        color: var(--acpchat-text);
+        display: flex;
+        flex-direction: column;
+        font: 12px/1.42 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        gap: 8px;
+        max-width: 100%;
+        min-height: 360px;
+        min-width: 0;
+        overflow-x: hidden;
+        padding: 6px 8px 8px;
+        width: 100%;
+      }
+      .acpchat-panel button,
+      .acpchat-panel select,
+      .acpchat-panel textarea {
+        font: inherit !important;
+      }
+      .acpchat-header,
+      .acpchat-context-card,
+      .acpchat-messages,
+      .acpchat-composer,
+      .acpchat-loading-card,
+      .acpchat-fatal {
+        background: var(--acpchat-surface);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 8px;
+        max-width: 100%;
+        min-width: 0;
+      }
+      .acpchat-header {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+        max-width: 100%;
+        min-height: 34px;
+        min-width: 0;
+        padding: 6px 8px;
+      }
+      .acpchat-brand {
+        align-items: center;
+        display: flex;
+        gap: 7px;
+        min-width: 0;
+      }
+      .acpchat-brand-mark {
+        align-items: center;
+        background: var(--acpchat-accent-soft);
+        border: 1px solid var(--acpchat-accent-border);
+        border-radius: 6px;
+        color: var(--acpchat-accent);
+        display: inline-flex;
+        flex: 0 0 auto;
+        font-size: 10px;
+        font-weight: 700;
+        height: 22px;
+        justify-content: center;
+        line-height: 1;
+        width: 22px;
+      }
+      .acpchat-brand-copy {
+        min-width: 0;
+      }
+      .acpchat-eyebrow {
+        color: var(--acpchat-muted);
+        font-size: 10px;
+        line-height: 1.15;
+      }
+      .acpchat-title {
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .acpchat-status-chip {
+        align-items: center;
+        background: var(--acpchat-surface-muted);
+        border: 1px solid transparent;
+        border-radius: 999px;
+        color: var(--acpchat-muted);
+        display: inline-flex;
+        flex: 0 0 auto;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1;
+        max-width: 42%;
+        overflow: hidden;
+        padding: 4px 7px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .acpchat-status-chip::before {
+        background: currentColor;
+        border-radius: 999px;
+        content: "";
+        flex: 0 0 auto;
+        height: 5px;
+        margin-right: 5px;
+        width: 5px;
+      }
+      .acpchat-status-chip.is-ready,
+      .acpchat-status-chip.is-success {
+        background: #eef8f2;
+        color: #157347;
+      }
+      .acpchat-status-chip.is-busy {
+        background: #fff4dc;
+        color: #8a5a00;
+      }
+      .acpchat-status-chip.is-error {
+        background: #fdeceb;
+        color: var(--acpchat-danger);
+      }
+      .acpchat-status-chip.is-muted {
+        background: var(--acpchat-surface-muted);
+        color: var(--acpchat-muted);
+      }
+      .acpchat-status-chip.is-busy::before {
+        animation: acpchat-pulse 1.2s ease-in-out infinite;
+      }
+      .acpchat-context-card {
+        padding: 7px 8px;
+      }
+      .acpchat-context-card-missing {
+        border-style: dashed;
+      }
+      .acpchat-context-label,
+      .acpchat-control-label,
+      .acpchat-message-role,
+      .acpchat-empty-title {
+        color: var(--acpchat-muted);
+        font-size: 10px;
+        font-weight: 650;
+        line-height: 1.2;
+      }
+      .acpchat-context-title {
+        display: block;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.35;
+        margin-top: 3px;
+        overflow-wrap: anywhere;
+        white-space: normal;
+        word-break: break-word;
+      }
+      .acpchat-context-meta {
+        color: var(--acpchat-muted);
+        font-size: 11px;
+        line-height: 1.3;
+        margin-top: 3px;
+        overflow-wrap: anywhere;
+        white-space: normal;
+        word-break: break-word;
+      }
+      .acpchat-controls {
+        display: grid;
+        gap: 6px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        max-width: 100%;
+        min-width: 0;
+      }
+      .acpchat-control {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+      }
+      .acpchat-select,
+      .acpchat-input {
+        background: var(--acpchat-surface);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 6px;
+        color: var(--acpchat-text);
+        min-width: 0;
+        width: 100%;
+      }
+      .acpchat-select {
+        height: 26px;
+        line-height: 24px;
+        padding: 1px 6px;
+      }
+      .acpchat-messages {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 8px;
+        max-width: 100%;
+        min-height: 180px;
+        min-width: 0;
+        overflow: auto;
+        overflow-x: hidden;
+        padding: 8px;
+      }
+      .acpchat-empty {
+        background: var(--acpchat-surface-muted);
+        border: 1px dashed var(--acpchat-border);
+        border-radius: 7px;
+        padding: 8px;
+      }
+      .acpchat-empty-title {
+        color: var(--acpchat-text);
+      }
+      .acpchat-empty-detail {
+        color: var(--acpchat-muted);
+        font-size: 11px;
+        line-height: 1.4;
+        margin-top: 3px;
+      }
+      .acpchat-message {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        line-height: 1.45;
+        max-width: 96%;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        width: 100%;
+      }
+      .acpchat-message-user {
+        align-self: flex-end;
+        max-width: 92%;
+        width: auto;
+      }
+      .acpchat-message-assistant,
+      .acpchat-message-tool,
+      .acpchat-message-system {
+        align-self: flex-start;
+        width: 100%;
+      }
+      .acpchat-message-tool,
+      .acpchat-message-system {
+        max-width: 100%;
+      }
+      .acpchat-message-meta {
+        align-items: center;
+        color: var(--acpchat-muted);
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 10px;
+        line-height: 1.25;
+      }
+      .acpchat-message-meta span + span {
+        margin-left: 5px;
+      }
+      .acpchat-message-user .acpchat-message-meta {
+        justify-content: flex-end;
+      }
+      .acpchat-message-body {
+        background: var(--acpchat-surface-muted);
+        border: 1px solid transparent;
+        border-radius: 8px;
+        font-size: 12px;
+        max-width: 100%;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        padding: 6px 8px;
+        white-space: normal;
+        word-break: break-word;
+      }
+      .acpchat-message-body * {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        white-space: normal;
+        word-break: break-word;
+      }
+      .acpchat-message-user .acpchat-message-body {
+        background: var(--acpchat-accent-soft);
+        border-color: rgba(37, 99, 235, 0.15);
+        color: var(--acpchat-text);
+      }
+      .acpchat-message-assistant .acpchat-message-body {
+        background: var(--acpchat-surface);
+        border-color: var(--acpchat-border);
+      }
+      .acpchat-message-tool .acpchat-message-body,
+      .acpchat-message-system .acpchat-message-body {
+        background: transparent;
+        border-color: transparent;
+        color: var(--acpchat-muted);
+        font-size: 11px;
+        padding: 2px 0;
+      }
+      .acpchat-message-status-error .acpchat-message-body {
+        border-color: rgba(179, 38, 30, 0.25);
+      }
+      .acpchat-message-state {
+        background: var(--acpchat-surface-muted);
+        border-radius: 999px;
+        padding: 1px 5px;
+      }
+      .acpchat-message-status-error .acpchat-message-state {
+        background: #fdeceb;
+        color: var(--acpchat-danger);
+      }
+      .acpchat-message-status-streaming .acpchat-message-state {
+        background: #fff4dc;
+        color: #8a5a00;
+      }
+      .acpchat-message-body p {
+        margin: 0 0 0.5em;
+        overflow-wrap: anywhere;
+      }
+      .acpchat-message-body p:last-child {
+        margin-bottom: 0;
+      }
+      .acpchat-message-body ul,
+      .acpchat-message-body ol {
+        margin: 0.35em 0 0.5em 1.25em;
+        padding: 0;
+      }
+      .acpchat-message-body li {
+        margin: 0.1em 0;
+      }
+      .acpchat-message-body pre {
+        background: rgba(0, 0, 0, 0.06);
+        border-radius: 6px;
+        margin: 0.5em 0;
+        max-width: 100%;
+        overflow: auto;
+        padding: 6px;
+        white-space: pre-wrap !important;
+      }
+      .acpchat-message-body code {
+        background: rgba(0, 0, 0, 0.06);
+        border-radius: 4px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.92em;
+        padding: 0 3px;
+      }
+      .acpchat-message-body pre code {
+        background: transparent;
+        padding: 0;
+        white-space: pre-wrap !important;
+      }
+      .acpchat-message-body blockquote {
+        border-left: 3px solid var(--acpchat-border);
+        color: var(--acpchat-muted);
+        margin: 0.5em 0;
+        padding-left: 7px;
+      }
+      .acpchat-message-body table {
+        border-collapse: collapse;
+        display: block;
+        margin: 0.5em 0;
+        max-width: 100%;
+        overflow: auto;
+      }
+      .acpchat-message-body th,
+      .acpchat-message-body td {
+        border: 1px solid var(--acpchat-border);
+        padding: 3px 5px;
+      }
+      .acpchat-composer {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-width: 100%;
+        min-width: 0;
+        padding: 7px;
+      }
+      .acpchat-input {
+        display: block;
+        line-height: 1.4;
+        max-width: 100%;
+        min-height: 68px;
+        overflow-x: hidden;
+        overflow-wrap: anywhere;
+        padding: 6px 7px;
+        resize: vertical;
+        white-space: pre-wrap !important;
+        word-break: break-word;
+      }
+      .acpchat-input:focus,
+      .acpchat-select:focus {
+        border-color: rgba(37, 99, 235, 0.42);
+        outline: 2px solid rgba(37, 99, 235, 0.12);
+      }
+      .acpchat-input:disabled {
+        opacity: 0.64;
+      }
+      .acpchat-composer-footer {
+        align-items: center;
+        display: flex;
+        gap: 6px;
+        justify-content: space-between;
+        max-width: 100%;
+        min-width: 0;
+      }
+      .acpchat-composer-hint {
+        color: var(--acpchat-muted);
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-size: 10px;
+        line-height: 1.25;
+      }
+      .acpchat-button-row {
+        display: flex;
+        flex: 0 0 auto;
+        gap: 5px;
+        min-width: 0;
+      }
+      .acpchat-send,
+      .acpchat-cancel {
+        border-radius: 6px;
+        font-weight: 600;
+        min-height: 26px;
+        padding: 2px 9px;
+      }
+      .acpchat-send {
+        background: var(--acpchat-accent);
+        border: 1px solid var(--acpchat-accent);
+        color: #ffffff;
+      }
+      .acpchat-send:disabled {
+        opacity: 0.5;
+      }
+      .acpchat-cancel {
+        background: var(--acpchat-surface);
+        border: 1px solid var(--acpchat-border);
+        color: var(--acpchat-muted);
+      }
+      .acpchat-loading-card,
+      .acpchat-fatal {
+        padding: 10px;
+      }
+      .acpchat-loading-title,
+      .acpchat-fatal-title {
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .acpchat-loading-detail,
+      .acpchat-fatal-detail {
+        color: var(--acpchat-muted);
+        font-size: 11px;
+        line-height: 1.4;
+        margin-top: 3px;
+      }
+      .acpchat-fatal {
+        border-color: rgba(179, 38, 30, 0.24);
+      }
+      .acpchat-fatal-title,
+      .acpchat-error {
+        color: var(--acpchat-danger);
+      }
+      .acpchat-toolbar-button {
+        align-items: center;
+        display: inline-flex;
+        font-weight: 700;
+        justify-content: center;
+        min-height: 28px;
+        min-width: 28px;
+      }
+      @keyframes acpchat-pulse {
+        0%, 100% { opacity: 0.42; transform: scale(0.9); }
+        50% { opacity: 1; transform: scale(1.12); }
+      }
+      @media (max-width: 260px) {
+        .acpchat-controls {
+          grid-template-columns: 1fr;
+        }
+        .acpchat-composer-footer {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .acpchat-button-row {
+          justify-content: flex-end;
+        }
+      }
+      @media (prefers-color-scheme: dark) {
+        .acpchat-panel {
+          --acpchat-accent: #7aa2ff;
+          --acpchat-accent-soft: rgba(122, 162, 255, 0.16);
+          --acpchat-accent-border: rgba(122, 162, 255, 0.32);
+          --acpchat-surface: #1f2125;
+          --acpchat-surface-muted: #2a2d32;
+          --acpchat-border: rgba(255, 255, 255, 0.14);
+          --acpchat-text: #f2f4f8;
+          --acpchat-muted: #a7adb7;
+          --acpchat-danger: #ffb4ab;
+        }
+        .acpchat-status-chip.is-ready,
+        .acpchat-status-chip.is-success {
+          background: rgba(62, 166, 105, 0.16);
+          color: #91d7a8;
+        }
+        .acpchat-status-chip.is-busy,
+        .acpchat-message-status-streaming .acpchat-message-state {
+          background: rgba(214, 162, 67, 0.16);
+          color: #f4c26b;
+        }
+        .acpchat-status-chip.is-error,
+        .acpchat-message-status-error .acpchat-message-state {
+          background: rgba(255, 180, 171, 0.14);
+          color: var(--acpchat-danger);
+        }
+      }
     `;
-    doc.documentElement?.append(style);
   }
 }
-
 function registerReaderToolbarEntry(): void {
   if (toolbarHandler) return;
   toolbarHandler = (event: any) => {
@@ -157,8 +681,15 @@ function registerReaderToolbarEntry(): void {
     const button = doc.createElement("button");
     button.className = "toolbar-button acpchat-toolbar-button";
     button.type = "button";
-    button.title = "Agent Client";
-    button.textContent = "AI";
+    button.title = getMainWindowString(
+      "acpchat-toolbar-button-title",
+      "Open Agent Client",
+    );
+    button.setAttribute("aria-label", button.title);
+    button.textContent = getMainWindowString(
+      "acpchat-toolbar-button-label",
+      "AI",
+    );
     button.addEventListener("click", () => {
       try {
         focusAcpPane(reader._window ?? Zotero.getMainWindow());
@@ -177,7 +708,9 @@ function registerReaderToolbarEntry(): void {
 
 function focusAcpPane(win: Window): void {
   const doc = win.document;
-  const itemDetails = doc.querySelector('item-details[tabType="reader"]') as any;
+  const itemDetails = doc.querySelector(
+    'item-details[tabType="reader"]',
+  ) as any;
   const section = Array.from(
     doc.querySelectorAll("item-pane-custom-section"),
   ).find((node) => (node as HTMLElement).dataset.pane?.includes(PANE_ID)) as
@@ -192,7 +725,9 @@ function focusAcpPane(win: Window): void {
 }
 
 function movePaneToTop(body: HTMLElement): void {
-  const section = body.closest("item-pane-custom-section") as HTMLElement | null;
+  const section = body.closest(
+    "item-pane-custom-section",
+  ) as HTMLElement | null;
   const itemDetails = body.closest("item-details") as any;
   const paneID = section?.dataset?.pane;
   if (!paneID || typeof itemDetails?.changePaneOrder !== "function") return;
@@ -200,155 +735,231 @@ function movePaneToTop(body: HTMLElement): void {
 }
 
 function renderPanel(body: HTMLElement, item: any): void {
-  body.textContent = "";
-  const doc = body.ownerDocument!;
-  const panel = doc.createElement("div");
-  panel.className = "acpchat-panel";
-  panel.textContent = "Loading...";
-  body.append(panel);
-  void renderPanelAsync(panel, item).catch((error) => {
-    panel.textContent = "";
-    const message = doc.createElement("div");
-    message.className = "acpchat-error";
-    message.textContent = toMessage(error);
-    panel.append(message);
+  panelRoots.get(body)?.unmount();
+  panelRoots.delete(body);
+  body.classList.add("acpchat-host");
+  renderPlainLoading(body);
+
+  void renderPanelAsync(body, item).catch((error) => {
+    renderPlainError(body, error);
   });
 }
 
-async function renderPanelAsync(panel: HTMLElement, item: any): Promise<void> {
-  const doc = panel.ownerDocument!;
+async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
+  const view = await import("./acpChatView");
+  const root = view.createAcpChatRoot(body);
+  panelRoots.set(body, root);
+  root.renderLoading(getMainWindowString);
+
   const settings = getSettings();
   const store = new FileSessionStore(settings.sessionStorePath);
   const pdf = await resolvePdfContext(item);
-  panel.textContent = "";
+  let activeSessionId: string | null = null;
 
-  const toolbar = doc.createElement("div");
-  toolbar.className = "acpchat-toolbar";
-  const agentSelect = doc.createElement("select");
-  for (const profile of settings.agentProfiles) {
-    const option = doc.createElement("option");
-    option.value = profile.id;
-    option.textContent = profile.name;
-    agentSelect.append(option);
-  }
-  agentSelect.value = settings.defaultAgent;
+  const initialRecord = pdf
+    ? await getOrCreateRecord(store, pdf, settings.defaultAgent)
+    : null;
+  const initialStatus: ChatStatus = pdf
+    ? {
+        kind: "ready",
+        text: getMainWindowString("acpchat-status-ready", "Ready"),
+      }
+    : {
+        kind: "muted",
+        text: getMainWindowString("acpchat-status-no-pdf", "No PDF"),
+      };
 
-  const presetSelect = doc.createElement("select");
-  for (const preset of settings.promptPresets) {
-    const option = doc.createElement("option");
-    option.value = preset.id;
-    option.textContent = preset.name;
-    presetSelect.append(option);
-  }
-  presetSelect.value = settings.defaultPresetId;
-
-  const status = doc.createElement("div");
-  status.className = "acpchat-status";
-  status.textContent = pdf ? `${pdf.fileName} attached` : "No local PDF attachment found";
-  toolbar.append(agentSelect, presetSelect, status);
-
-  const messages = doc.createElement("div");
-  messages.className = "acpchat-messages";
-  const input = doc.createElement("textarea");
-  input.className = "acpchat-input";
-  const buttonRow = doc.createElement("div");
-  buttonRow.className = "acpchat-button-row";
-  const sendButton = doc.createElement("button");
-  sendButton.className = "acpchat-send";
-  sendButton.type = "button";
-  sendButton.textContent = "Send";
-  const cancelButton = doc.createElement("button");
-  cancelButton.type = "button";
-  cancelButton.textContent = "Cancel";
-  cancelButton.disabled = true;
-  buttonRow.append(sendButton, cancelButton);
-  panel.append(toolbar, messages, input, buttonRow);
-
-  let record = pdf ? await getOrCreateRecord(store, pdf, agentSelect.value) : null;
-  if (record) renderMessages(messages, record.messages);
-
-  const applyPreset = () => {
-    const preset = settings.promptPresets.find((candidate) => candidate.id === presetSelect.value);
-    input.value = renderTemplate(settings.defaultTemplate, {
-      title: pdf?.title ?? "",
-      year: pdf?.year ?? "",
+  const buildPrompt = (presetId: string) => {
+    if (!pdf) return "";
+    const preset = settings.promptPresets.find(
+      (candidate) => candidate.id === presetId,
+    );
+    return renderTemplate(settings.defaultTemplate, {
+      title: pdf.title,
+      year: pdf.year,
       prompt: renderTemplate(preset?.prompt ?? "", {
-        title: pdf?.title ?? "",
-        year: pdf?.year ?? "",
+        title: pdf.title,
+        year: pdf.year,
         prompt: "",
       }),
     });
   };
-  presetSelect.addEventListener("change", applyPreset);
-  applyPreset();
 
-  let activeSessionId: string | null = null;
-  sendButton.disabled = !pdf;
-
-  sendButton.addEventListener("click", async () => {
-    if (!pdf || !record) return;
-    const profile = settings.agentProfiles.find((candidate) => candidate.id === agentSelect.value);
+  const onSend = async ({
+    agentId,
+    record,
+    setRecord,
+    setStatus,
+    text,
+  }: SendPromptRequest) => {
+    if (!pdf) return;
+    const profile = settings.agentProfiles.find(
+      (candidate) => candidate.id === agentId,
+    );
     if (!profile) {
-      setStatus(status, "Select a valid ACP agent", true);
-      return;
-    }
-    const text = input.value.trim();
-    if (!text) {
-      setStatus(status, "Prompt is empty", true);
+      setStatus({
+        kind: "error",
+        text: getMainWindowString(
+          "acpchat-error-invalid-agent",
+          "Select a valid ACP agent",
+        ),
+      });
       return;
     }
 
-    sendButton.disabled = true;
-    cancelButton.disabled = false;
     const userMessage = makeMessage("user", text, "done");
     const assistantMessage = makeMessage("assistant", "", "streaming");
-    record = {
+    let nextRecord: SessionRecord = {
       ...record,
       agentId: profile.id,
       messages: [...record.messages, userMessage, assistantMessage],
       updatedAt: new Date().toISOString(),
     };
-    renderMessages(messages, record.messages);
-    await store.upsert(record);
+    setRecord(nextRecord);
+    await store.upsert(nextRecord);
 
     const client = getClient(profile);
     const removeUpdate = client.onUpdate((update) => {
-      if (!record || !activeSessionId || update.sessionId !== activeSessionId) return;
-      record = applyAcpUpdate(record, assistantMessage.id, update.update);
-      renderMessages(messages, record.messages);
-      void store.upsert(record);
+      if (!activeSessionId || update.sessionId !== activeSessionId) return;
+      nextRecord = applyAcpUpdate(
+        nextRecord,
+        assistantMessage.id,
+        update.update,
+      );
+      setRecord(nextRecord);
+      void store.upsert(nextRecord);
     });
 
     try {
-      setStatus(status, `Starting ${profile.name}...`);
-      activeSessionId = await client.loadOrCreateSession(record.sessionId, pdf.cwd);
-      record = { ...record, sessionId: activeSessionId, updatedAt: new Date().toISOString() };
-      await store.upsert(record);
-      const response = await client.sendPrompt(activeSessionId, makePromptContent(text, pdf));
-      record = markMessage(record, assistantMessage.id, response.stopReason === "cancelled" ? "cancelled" : "done");
-      await store.upsert(record);
-      renderMessages(messages, record.messages);
-      setStatus(status, response.stopReason ? `Stopped: ${response.stopReason}` : "Done");
+      setStatus({
+        kind: "busy",
+        text: getMainWindowString(
+          "acpchat-status-starting",
+          "Starting {agent}...",
+          {
+            agent: profile.name,
+          },
+        ),
+      });
+      activeSessionId = await client.loadOrCreateSession(
+        nextRecord.sessionId,
+        pdf.cwd,
+      );
+      nextRecord = {
+        ...nextRecord,
+        sessionId: activeSessionId,
+        updatedAt: new Date().toISOString(),
+      };
+      await store.upsert(nextRecord);
+      setRecord(nextRecord);
+      setStatus({
+        kind: "busy",
+        text: getMainWindowString("acpchat-status-running", "Running"),
+      });
+
+      const response = await client.sendPrompt(
+        activeSessionId,
+        makePromptContent(text, pdf),
+      );
+      nextRecord = markMessage(
+        nextRecord,
+        assistantMessage.id,
+        response.stopReason === "cancelled" ? "cancelled" : "done",
+      );
+      await store.upsert(nextRecord);
+      setRecord(nextRecord);
+      setStatus({
+        kind: response.stopReason ? "muted" : "success",
+        text: response.stopReason
+          ? getMainWindowString("acpchat-status-stopped", "Stopped: {reason}", {
+              reason: response.stopReason,
+            })
+          : getMainWindowString("acpchat-status-done", "Done"),
+      });
     } catch (error) {
-      record = markMessage(record, assistantMessage.id, "error", toMessage(error));
-      await store.upsert(record);
-      renderMessages(messages, record.messages);
-      setStatus(status, toMessage(error), true);
+      nextRecord = markMessage(
+        nextRecord,
+        assistantMessage.id,
+        "error",
+        toMessage(error),
+      );
+      await store.upsert(nextRecord);
+      setRecord(nextRecord);
+      setStatus({ kind: "error", text: toMessage(error) });
     } finally {
       activeSessionId = null;
       removeUpdate();
-      sendButton.disabled = false;
-      cancelButton.disabled = true;
     }
-  });
+  };
 
-  cancelButton.addEventListener("click", () => {
-    const profile = settings.agentProfiles.find((candidate) => candidate.id === agentSelect.value);
-    if (profile && activeSessionId) {
-      getClient(profile).cancel(activeSessionId);
-      setStatus(status, "Cancelling...");
-    }
+  const onCancel = (agentId: string) => {
+    const profile = settings.agentProfiles.find(
+      (candidate) => candidate.id === agentId,
+    );
+    if (!profile || !activeSessionId) return false;
+    getClient(profile).cancel(activeSessionId);
+    return true;
+  };
+
+  if (panelRoots.get(body) !== root) return;
+  root.renderPanel({
+    buildPrompt,
+    initialRecord,
+    initialStatus,
+    l10n: getMainWindowString,
+    onCancel,
+    onSend,
+    pdf,
+    renderMarkdown: (text: string) => markdown.render(text),
+    settings,
   });
+}
+
+function renderPlainLoading(body: HTMLElement): void {
+  body.textContent = "";
+  const doc = body.ownerDocument!;
+  const panel = doc.createElement("section");
+  panel.className = "acpchat-panel";
+  const card = doc.createElement("div");
+  card.className = "acpchat-loading-card";
+  const title = doc.createElement("div");
+  title.className = "acpchat-loading-title";
+  title.textContent = getMainWindowString(
+    "acpchat-panel-loading-title",
+    "Preparing research context",
+  );
+  const detail = doc.createElement("div");
+  detail.className = "acpchat-loading-detail";
+  detail.textContent = getMainWindowString(
+    "acpchat-panel-loading-detail",
+    "Looking for a local PDF attachment and recent chat state.",
+  );
+  card.append(title, detail);
+  panel.append(card);
+  body.append(panel);
+}
+
+function renderPlainError(body: HTMLElement, error: unknown): void {
+  panelRoots.get(body)?.unmount();
+  panelRoots.delete(body);
+  body.textContent = "";
+  const doc = body.ownerDocument!;
+  const panel = doc.createElement("section");
+  panel.className = "acpchat-panel";
+  const card = doc.createElement("div");
+  card.className = "acpchat-fatal";
+  const title = doc.createElement("div");
+  title.className = "acpchat-fatal-title";
+  title.textContent = getMainWindowString(
+    "acpchat-fatal-title",
+    "Could not load Agent Client",
+  );
+  const detail = doc.createElement("div");
+  detail.className = "acpchat-fatal-detail";
+  detail.textContent = toMessage(error);
+  card.append(title, detail);
+  panel.append(card);
+  body.append(panel);
 }
 
 function getSettings(): Settings {
@@ -382,7 +993,11 @@ async function resolvePdfContext(item: any): Promise<PdfContext | null> {
   const filePath = await pdfItem.getFilePathAsync();
   if (!filePath) return null;
   const sourceItem = pdfItem.parentItem ?? item;
-  const title = String(sourceItem?.getField?.("title", false, true) || pdfItem.attachmentFilename || "Untitled PDF");
+  const title = String(
+    sourceItem?.getField?.("title", false, true) ||
+      pdfItem.attachmentFilename ||
+      "Untitled PDF",
+  );
   const date = String(sourceItem?.getField?.("date", false, true) || "");
   const stat = await statFile(filePath);
   return {
@@ -405,14 +1020,18 @@ async function getPdfAttachment(item: any): Promise<any | null> {
   const best = await item.getBestAttachment?.();
   if (best && isPdf(best)) return best;
   if (item.getAttachments) {
-    const attachments = Zotero.Items.get(item.getAttachments(false)) as unknown as any[];
+    const attachments = Zotero.Items.get(
+      item.getAttachments(false),
+    ) as unknown as any[];
     return attachments.find((candidate: any) => isPdf(candidate)) ?? null;
   }
   return null;
 }
 
 function isPdf(item: any): boolean {
-  return item.isPDFAttachment?.() || item.attachmentContentType === "application/pdf";
+  return (
+    item.isPDFAttachment?.() || item.attachmentContentType === "application/pdf"
+  );
 }
 
 function makePromptContent(text: string, pdf: PdfContext): any[] {
@@ -462,40 +1081,69 @@ class AcpClient {
     void this.watchExit();
     this.initializeResult = await this.request("initialize", {
       protocolVersion: 1,
-      clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-      clientInfo: { name: "zotero-agent-client", title: "Zotero Agent Client", version: "0.1.0" },
+      clientCapabilities: {
+        fs: { readTextFile: false, writeTextFile: false },
+        terminal: false,
+      },
+      clientInfo: {
+        name: "zotero-agent-client",
+        title: "Zotero Agent Client",
+        version: "0.1.0",
+      },
     });
     return this.initializeResult;
   }
 
-  async loadOrCreateSession(recordedSessionId: string | undefined, cwd: string): Promise<string> {
+  async loadOrCreateSession(
+    recordedSessionId: string | undefined,
+    cwd: string,
+  ): Promise<string> {
     const init = await this.connect();
     if (recordedSessionId && init.agentCapabilities?.loadSession) {
-      await this.request("session/load", { sessionId: recordedSessionId, cwd, mcpServers: [] }, 120000);
+      await this.request(
+        "session/load",
+        { sessionId: recordedSessionId, cwd, mcpServers: [] },
+        120000,
+      );
       return recordedSessionId;
     }
     const result = await this.request("session/new", { cwd, mcpServers: [] });
-    if (!result.sessionId) throw new Error("ACP agent did not return a sessionId");
+    if (!result.sessionId)
+      throw new Error("ACP agent did not return a sessionId");
     return result.sessionId;
   }
 
   sendPrompt(sessionId: string, prompt: any[]): Promise<any> {
-    return this.request("session/prompt", { sessionId, prompt }, 10 * 60 * 1000);
+    return this.request(
+      "session/prompt",
+      { sessionId, prompt },
+      10 * 60 * 1000,
+    );
   }
 
   cancel(sessionId: string): void {
-    this.write({ jsonrpc: "2.0", method: "session/cancel", params: { sessionId } });
+    this.write({
+      jsonrpc: "2.0",
+      method: "session/cancel",
+      params: { sessionId },
+    });
   }
 
   close(): void {
     try {
       this.process?.stdin?.close();
       this.process?.kill?.();
-    } catch {}
+    } catch {
+      // The subprocess may already be gone while Zotero is unloading.
+    }
     this.process = null;
   }
 
-  private request(method: string, params: any, timeoutMs = 30000): Promise<any> {
+  private request(
+    method: string,
+    params: any,
+    timeoutMs = 30000,
+  ): Promise<any> {
     const id = this.nextId++;
     this.write({ jsonrpc: "2.0", id, method, params });
     return new Promise((resolve, reject) => {
@@ -530,18 +1178,28 @@ class AcpClient {
   private async watchExit(): Promise<void> {
     const result = await this.process.wait();
     if (result.exitCode !== 0) {
-      for (const pending of this.pending.values()) pending.reject(new Error(`ACP exited with ${result.exitCode}`));
+      for (const pending of this.pending.values())
+        pending.reject(new Error(`ACP exited with ${result.exitCode}`));
       this.pending.clear();
     }
   }
 
   private handleMessage(message: any): void {
-    if (typeof message.id === "number" && (Object.hasOwn(message, "result") || Object.hasOwn(message, "error"))) {
+    if (
+      typeof message.id === "number" &&
+      (Object.hasOwn(message, "result") || Object.hasOwn(message, "error"))
+    ) {
       const pending = this.pending.get(message.id);
       if (!pending) return;
       clearTimeout(pending.timeout);
       this.pending.delete(message.id);
-      message.error ? pending.reject(new Error(message.error.message || "ACP request failed")) : pending.resolve(message.result);
+      if (message.error) {
+        pending.reject(
+          new Error(message.error.message || "ACP request failed"),
+        );
+      } else {
+        pending.resolve(message.result);
+      }
       return;
     }
     if (message.method === "session/update") {
@@ -549,7 +1207,11 @@ class AcpClient {
       return;
     }
     if (typeof message.id === "number") {
-      this.write({ jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "Unsupported client method" } });
+      this.write({
+        jsonrpc: "2.0",
+        id: message.id,
+        error: { code: -32601, message: "Unsupported client method" },
+      });
     }
   }
 }
@@ -563,18 +1225,29 @@ class FileSessionStore {
 
   async upsert(record: SessionRecord): Promise<void> {
     const store = await this.read();
-    store.records = store.records.filter((candidate) => candidate.key !== record.key);
+    store.records = store.records.filter(
+      (candidate) => candidate.key !== record.key,
+    );
     store.records.push(record);
     await this.write(store);
   }
 
   private async path(): Promise<string> {
-    return this.configuredPath.trim() || PathUtils.join((Zotero as any).Profile.dir, "agentclient", "sessions.json");
+    return (
+      this.configuredPath.trim() ||
+      PathUtils.join(
+        (Zotero as any).Profile.dir,
+        "agentclient",
+        "sessions.json",
+      )
+    );
   }
 
   private async read(): Promise<StoreDocument> {
     try {
-      return JSON.parse(await IOUtils.readUTF8(await this.path())) as StoreDocument;
+      return JSON.parse(
+        await IOUtils.readUTF8(await this.path()),
+      ) as StoreDocument;
     } catch {
       return { version: 1, records: [] };
     }
@@ -598,84 +1271,154 @@ function getClient(profile: AgentProfile): AcpClient {
   return client;
 }
 
-async function getOrCreateRecord(store: FileSessionStore, pdf: PdfContext, agentId: string): Promise<SessionRecord> {
+async function getOrCreateRecord(
+  store: FileSessionStore,
+  pdf: PdfContext,
+  agentId: string,
+): Promise<SessionRecord> {
   const key = `${pdf.libraryID}:${pdf.sourceItemID}:${pdf.itemID}`;
-  return (await store.get(key)) ?? {
-    key,
-    agentId,
-    pdfItemID: pdf.itemID,
-    pdfPathHash: simpleHash(pdf.filePath),
-    messages: [makeMessage("system", `Attached PDF: ${pdf.fileName}`, "done")],
-    updatedAt: new Date().toISOString(),
-  };
+  return (
+    (await store.get(key)) ?? {
+      key,
+      agentId,
+      pdfItemID: pdf.itemID,
+      pdfPathHash: simpleHash(pdf.filePath),
+      messages: [
+        makeMessage(
+          "system",
+          getMainWindowString(
+            "acpchat-system-attached-pdf",
+            "Attached PDF: {fileName}",
+            {
+              fileName: pdf.fileName,
+            },
+          ),
+          "done",
+        ),
+      ],
+      updatedAt: new Date().toISOString(),
+    }
+  );
 }
 
-function applyAcpUpdate(record: SessionRecord, id: string, update: any): SessionRecord {
-  if (update.sessionUpdate === "agent_message_chunk" && update.content?.type === "text") {
+function applyAcpUpdate(
+  record: SessionRecord,
+  id: string,
+  update: any,
+): SessionRecord {
+  if (
+    update.sessionUpdate === "agent_message_chunk" &&
+    update.content?.type === "text"
+  ) {
     return {
       ...record,
-      messages: record.messages.map((message) => message.id === id ? { ...message, text: message.text + update.content.text } : message),
+      messages: record.messages.map((message) =>
+        message.id === id
+          ? { ...message, text: message.text + update.content.text }
+          : message,
+      ),
       updatedAt: new Date().toISOString(),
     };
   }
   if (update.sessionUpdate === "tool_call") {
     return {
       ...record,
-      messages: [...record.messages, makeMessage("tool", `${update.title ?? "Tool call"} (${update.status ?? "pending"})`, "done")],
+      messages: [
+        ...record.messages,
+        makeMessage(
+          "tool",
+          `${update.title ?? "Tool call"} (${update.status ?? "pending"})`,
+          "done",
+        ),
+      ],
       updatedAt: new Date().toISOString(),
     };
   }
   return record;
 }
 
-function markMessage(record: SessionRecord, id: string, status: NonNullable<ChatMessage["status"]>, fallback = ""): SessionRecord {
+function markMessage(
+  record: SessionRecord,
+  id: string,
+  status: NonNullable<ChatMessage["status"]>,
+  fallback = "",
+): SessionRecord {
   return {
     ...record,
-    messages: record.messages.map((message) => message.id === id ? { ...message, status, text: message.text || fallback } : message),
+    messages: record.messages.map((message) =>
+      message.id === id
+        ? { ...message, status, text: message.text || fallback }
+        : message,
+    ),
     updatedAt: new Date().toISOString(),
   };
 }
 
-function renderMessages(container: HTMLElement, messages: ChatMessage[]): void {
-  container.textContent = "";
-  const doc = container.ownerDocument!;
-  for (const message of messages) {
-    const node = doc.createElement("div");
-    node.className = `acpchat-message acpchat-message-${message.role}`;
-    const text = message.text || (message.status === "streaming" ? "..." : "");
-    if (message.role === "assistant" || message.role === "tool") {
-      node.innerHTML = markdown.render(text);
-      hardenRenderedLinks(node);
-    } else {
-      node.textContent = text;
+function makeMessage(
+  role: ChatRole,
+  text: string,
+  status: MessageStatus,
+): ChatMessage {
+  return {
+    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+    role,
+    text,
+    status,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function getMainWindowString(
+  id: string,
+  fallback: string,
+  args?: Record<string, unknown>,
+): string {
+  try {
+    if (!mainWindowL10n) {
+      const LocalizationCtor =
+        typeof Localization === "undefined"
+          ? ztoolkit.getGlobal("Localization")
+          : Localization;
+      mainWindowL10n = new LocalizationCtor(
+        [`${config.addonRef}-mainWindow.ftl`],
+        true,
+      );
     }
-    container.append(node);
-  }
-  container.scrollTop = container.scrollHeight;
-}
-
-function hardenRenderedLinks(container: HTMLElement): void {
-  for (const link of Array.from(container.querySelectorAll("a")) as HTMLAnchorElement[]) {
-    link.setAttribute("rel", "noreferrer");
-    link.setAttribute("target", "_blank");
+    const pattern = mainWindowL10n.formatMessagesSync([
+      { id: `${config.addonRef}-${id}`, args },
+    ])[0] as FluentPattern | undefined;
+    return pattern?.value || formatPlainTemplate(fallback, args);
+  } catch {
+    return formatPlainTemplate(fallback, args);
   }
 }
 
-function setStatus(status: HTMLElement, text: string, isError = false): void {
-  status.textContent = text;
-  status.classList.toggle("acpchat-error", isError);
+function formatPlainTemplate(
+  template: string,
+  args?: Record<string, unknown>,
+): string {
+  if (!args) return template;
+  return template.replace(/\{\s*(\w+)\s*\}/g, (match, key) =>
+    Object.hasOwn(args, key) ? String(args[key] ?? "") : match,
+  );
 }
 
-function makeMessage(role: ChatRole, text: string, status: NonNullable<ChatMessage["status"]>): ChatMessage {
-  return { id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`, role, text, status, createdAt: new Date().toISOString() };
-}
-
-function renderTemplate(template: string, vars: { title: string; year: string; prompt: string }): string {
-  return template.replace(/\{\{\s*(title|year|prompt)\s*\}\}/g, (_match, key: "title" | "year" | "prompt") => vars[key] ?? "");
+function renderTemplate(
+  template: string,
+  vars: { title: string; year: string; prompt: string },
+): string {
+  return template.replace(
+    /\{\{\s*(title|year|prompt)\s*\}\}/g,
+    (_match, key: "title" | "year" | "prompt") => vars[key] ?? "",
+  );
 }
 
 function pathToFileUri(path: string): string {
-  return `file://${path.replace(/\\/g, "/").split("/").map((part) => encodeURIComponent(part)).join("/")}`;
+  return `file://${path
+    .replace(/\\/g, "/")
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/")}`;
 }
 
 function basename(path: string): string {
@@ -733,7 +1476,9 @@ async function resolveExecutableCommand(
     if (resolved && resolved !== normalizedCommand) {
       return resolved;
     }
-  } catch {}
+  } catch {
+    // Some Zotero runtimes do not expose pathSearch consistently.
+  }
 
   throw new Error(
     `Executable not found: ${normalizedCommand}. ` +
