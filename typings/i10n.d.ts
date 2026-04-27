@@ -4,6 +4,7 @@
 // @ts-nocheck
 export type FluentMessageId =
   | 'acpchat-attach-button-title'
+  | 'acpchat-attachment-remove-title'
   | 'acpchat-brand-eyebrow'
   | 'acpchat-brand-mark'
   | 'acpchat-cancel-button'
@@ -20,6 +21,9 @@ export type FluentMessageId =
   | 'acpchat-error-empty-prompt'
   | 'acpchat-error-invalid-agent'
   | 'acpchat-fatal-title'
+  | 'acpchat-filepicker-title'
+  | 'acpchat-filepicker-unavailable'
+  | 'acpchat-history-button'
   | 'acpchat-input-disabled-placeholder'
   | 'acpchat-input-placeholder'
   | 'acpchat-message-status-cancelled'

@@ -81,6 +81,14 @@ export interface PdfContext {
   cwd: string;
 }
 
+export interface AttachmentContext {
+  fileName: string;
+  filePath: string;
+  fileUri: string;
+  fileSize: number | null;
+  mimeType?: string;
+}
+
 interface StoreDocument {
   version: 1;
   records: SessionRecord[];
@@ -195,15 +203,20 @@ function injectStyles(): void {
       }
       .acpchat-host {
         contain: inline-size;
+        display: flex;
+        flex-direction: column;
         inline-size: 100%;
         max-width: 100%;
+        min-height: 0;
         min-width: 0;
         overflow-x: clip;
         overflow-x: hidden;
       }
       .acpchat-host > * {
+        flex: 1 1 auto;
         inline-size: 100%;
         max-width: 100%;
+        min-height: 0;
         min-width: 0;
         overflow-x: clip;
         overflow-x: hidden;
@@ -219,18 +232,21 @@ function injectStyles(): void {
         --acpchat-muted: var(--fill-secondary, #6b7280);
         --acpchat-danger: #b3261e;
         background: transparent;
+        block-size: min(76vh, 860px);
         color: var(--acpchat-text);
         contain: inline-size;
-        display: grid;
+        display: flex;
+        flex-direction: column;
         font: 12px/1.42 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
         gap: 8px;
-        grid-template-columns: minmax(0, 1fr);
         inline-size: 100%;
+        max-block-size: min(76vh, 860px);
         max-width: 100%;
-        min-height: 360px;
+        min-block-size: 320px;
         min-width: 0;
         overflow-x: clip;
         overflow-x: hidden;
+        overflow-y: hidden;
         padding: 6px 8px 8px;
         width: 100%;
       }
@@ -258,29 +274,54 @@ function injectStyles(): void {
       }
       .acpchat-topbar {
         display: flex;
+        flex: 0 0 auto;
         flex-direction: column;
         gap: 5px;
         min-width: 0;
         padding: 7px 8px;
       }
-      .acpchat-topbar-label {
-        color: var(--acpchat-muted);
-        font-size: 10px;
-        font-weight: 650;
-        line-height: 1.2;
-      }
       .acpchat-topbar-main {
         align-items: center;
         display: grid;
         gap: 6px;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr) auto auto;
         min-width: 0;
       }
       .acpchat-agent-select {
         width: 100%;
       }
+      .acpchat-topbar-action,
+      .acpchat-topbar-plus {
+        align-items: center;
+        background: var(--acpchat-surface-muted);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 6px;
+        color: var(--acpchat-muted);
+        display: inline-flex;
+        font-size: 10px;
+        font-weight: 650;
+        justify-content: center;
+        line-height: 1;
+        min-height: 26px;
+        min-width: 0;
+        padding: 2px 8px;
+      }
+      .acpchat-topbar-action.is-active {
+        border-color: var(--acpchat-accent-border);
+        color: var(--acpchat-accent);
+      }
+      .acpchat-topbar-plus {
+        font-size: 17px;
+        padding: 0;
+        width: 28px;
+      }
+      .acpchat-topbar-status {
+        display: flex;
+        justify-content: flex-end;
+      }
       .acpchat-topic-list {
         display: flex;
+        flex: 0 0 auto;
         flex-direction: column;
         gap: 6px;
         min-width: 0;
@@ -416,7 +457,7 @@ function injectStyles(): void {
         font-size: 10px;
         font-weight: 600;
         line-height: 1;
-        max-width: 96px;
+        max-width: 100%;
         overflow: hidden;
         padding: 4px 7px;
         text-overflow: ellipsis;
@@ -514,13 +555,13 @@ function injectStyles(): void {
       }
       .acpchat-messages {
         display: flex;
-        flex: 1;
+        flex: 1 1 auto;
         flex-direction: column;
         gap: 8px;
         inline-size: 100%;
-        max-height: min(44vh, 360px);
+        max-height: none;
         max-width: 100%;
-        min-height: 180px;
+        min-height: 0;
         min-width: 0;
         overflow: auto;
         overflow-x: clip;
@@ -696,6 +737,7 @@ function injectStyles(): void {
       .acpchat-composer {
         contain: inline-size;
         display: flex;
+        flex: 0 0 auto;
         flex-direction: column;
         gap: 6px;
         inline-size: 100%;
@@ -730,17 +772,38 @@ function injectStyles(): void {
       }
       .acpchat-attachment-type {
         color: var(--acpchat-accent);
+        flex: 0 0 auto;
         font-size: 9px;
         font-weight: 700;
       }
       .acpchat-attachment-name {
         color: var(--acpchat-muted);
+        flex: 1 1 auto;
         font-size: 10px;
         max-width: 100%;
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+      .acpchat-attachment-remove {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        color: var(--acpchat-muted);
+        display: inline-flex;
+        flex: 0 0 auto;
+        font-size: 12px;
+        height: 16px;
+        justify-content: center;
+        line-height: 1;
+        margin-left: 2px;
+        min-width: 16px;
+        padding: 0;
+        width: 16px;
+      }
+      .acpchat-attachment-remove:disabled {
+        opacity: 0.42;
       }
       .acpchat-input {
         display: block;
@@ -784,6 +847,11 @@ function injectStyles(): void {
         flex: 1 1 auto;
         min-width: 0;
       }
+      .acpchat-attach-wrap {
+        flex: 0 0 auto;
+        min-width: 0;
+        position: relative;
+      }
       .acpchat-attach-button {
         align-items: center;
         background: var(--acpchat-surface-muted);
@@ -800,6 +868,68 @@ function injectStyles(): void {
       .acpchat-attach-button.is-active {
         border-color: var(--acpchat-accent-border);
         color: var(--acpchat-accent);
+      }
+      .acpchat-attach-menu {
+        background: var(--acpchat-surface);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 8px;
+        bottom: calc(100% + 6px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+        display: grid;
+        gap: 0;
+        left: 0;
+        min-width: 180px;
+        overflow: hidden;
+        position: absolute;
+        width: 220px;
+        max-width: 220px;
+        z-index: 5;
+      }
+      .acpchat-attach-option {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        color: var(--acpchat-text);
+        cursor: pointer;
+        display: grid;
+        gap: 6px;
+        grid-template-columns: 12px minmax(0, 1fr);
+        line-height: 1.2;
+        min-width: 0;
+        padding: 7px 8px;
+        text-align: left;
+        width: 100%;
+      }
+      .acpchat-attach-option:hover {
+        background: var(--acpchat-surface-muted);
+      }
+      .acpchat-attach-option.is-active {
+        background: var(--acpchat-accent-soft);
+      }
+      .acpchat-attach-option-check {
+        color: var(--acpchat-accent);
+        display: inline-flex;
+        font-size: 10px;
+        font-weight: 700;
+        justify-content: center;
+      }
+      .acpchat-attach-option-content {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+      }
+      .acpchat-attach-option-title {
+        color: var(--acpchat-text);
+        font-size: 10px;
+        font-weight: 650;
+      }
+      .acpchat-attach-option-label {
+        color: var(--acpchat-muted);
+        font-size: 10px;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .acpchat-inline-action {
         background: var(--acpchat-surface-muted);
@@ -990,18 +1120,35 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
 
   const settings = getSettings();
   const store = new FileSessionStore(settings.sessionStorePath);
-  const pdf = await resolvePdfContext(item);
+  let pdf: PdfContext | null = null;
+  try {
+    pdf = await resolvePdfContext(item);
+  } catch (error) {
+    Zotero.logError(error as Error);
+    pdf = null;
+  }
   let activeSessionId: string | null = null;
 
-  const initialLoadedState = pdf
-    ? await loadAgentState(
+  let initialLoadedState: {
+    record: SessionRecord;
+    topics: TopicSummary[];
+    configOptions: SessionConfigOption[];
+  } | null = null;
+  if (pdf) {
+    try {
+      initialLoadedState = await loadAgentState(
         store,
         pdf,
         settings.agentProfiles,
         settings.defaultAgent,
-      )
-    : null;
-  const initialRecord = initialLoadedState?.record ?? null;
+      );
+    } catch (error) {
+      Zotero.logError(error as Error);
+    }
+  }
+  const initialRecord =
+    initialLoadedState?.record ??
+    (pdf ? makeInitialRecord(pdf, settings.defaultAgent) : null);
   const initialTopics = initialLoadedState?.topics ?? [];
   const initialConfigOptions = initialLoadedState?.configOptions ?? [];
   const initialStatus: ChatStatus = pdf
@@ -1016,6 +1163,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
 
   const onSend = async ({
     agentId,
+    attachment,
     includePdf,
     record,
     setConfigOptions,
@@ -1103,7 +1251,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
 
       const response = await client.sendPrompt(
         activeSessionId,
-        makePromptContent(text, pdf, includePdf),
+        makePromptContent(text, pdf, includePdf, attachment),
       );
       nextRecord = markMessage(
         nextRecord,
@@ -1233,6 +1381,13 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
     return await client.setSessionConfigOption(sessionId, configId, value);
   };
 
+  const onPickAttachment = async (): Promise<AttachmentContext | null> => {
+    const parentWindow =
+      body.ownerDocument?.defaultView ?? Zotero.getMainWindow();
+    const initialDirectory = pdf?.cwd;
+    return await pickLocalAttachment(parentWindow, initialDirectory);
+  };
+
   if (panelRoots.get(body) !== root) return;
   root.renderPanel({
     initialConfigOptions,
@@ -1244,6 +1399,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
     onLoadAgentState,
     onSetConfigOption,
     onNewTopic,
+    onPickAttachment,
     onSend,
     pdf,
     renderMarkdown: (text: string) => markdown.render(text),
@@ -1440,22 +1596,79 @@ function isPdf(item: any): boolean {
   );
 }
 
+async function pickLocalAttachment(
+  parentWindow: Window,
+  initialDirectory?: string,
+): Promise<AttachmentContext | null> {
+  let FilePickerCtor: any;
+  try {
+    FilePickerCtor = ChromeUtils.importESModule(
+      "chrome://zotero/content/modules/filePicker.mjs",
+    ).FilePicker;
+  } catch (error) {
+    throw new Error(
+      getMainWindowString(
+        "acpchat-filepicker-unavailable",
+        "File picker is unavailable in this Zotero build.",
+      ),
+      { cause: error as Error },
+    );
+  }
+  const picker = new FilePickerCtor();
+  picker.init(
+    parentWindow,
+    getMainWindowString("acpchat-filepicker-title", "Choose attachment"),
+    picker.modeOpen,
+  );
+  picker.appendFilters(picker.filterAll);
+
+  if (initialDirectory && (await IOUtils.exists(initialDirectory))) {
+    picker.displayDirectory = initialDirectory;
+  }
+
+  const result = await picker.show();
+  if (result !== picker.returnOK && result !== picker.returnReplace) {
+    return null;
+  }
+
+  const filePath = picker.file;
+  if (!filePath) return null;
+  const stat = await statFile(filePath);
+  return {
+    fileName: basename(filePath),
+    filePath,
+    fileUri: pathToFileUri(filePath),
+    fileSize: stat?.size ?? null,
+    mimeType: inferMimeType(filePath),
+  };
+}
+
 function makePromptContent(
   text: string,
   pdf: PdfContext,
   includePdf: boolean,
+  attachment: AttachmentContext | null,
 ): any[] {
-  if (!includePdf) return [{ type: "text", text }];
-  return [
-    { type: "text", text },
-    {
+  const content: any[] = [{ type: "text", text }];
+  if (includePdf) {
+    content.push({
       type: "resource_link",
       uri: pdf.fileUri,
       name: pdf.fileName,
       mimeType: "application/pdf",
       size: pdf.fileSize,
-    },
-  ];
+    });
+  }
+  if (attachment) {
+    content.push({
+      type: "resource_link",
+      uri: attachment.fileUri,
+      name: attachment.fileName,
+      mimeType: attachment.mimeType,
+      size: attachment.fileSize,
+    });
+  }
+  return content;
 }
 
 class AcpClient {
@@ -2052,6 +2265,25 @@ function pathToFileUri(path: string): string {
 
 function basename(path: string): string {
   return path.split(/[\\/]/).pop() || path;
+}
+
+function inferMimeType(path: string): string | undefined {
+  const ext = basename(path).split(".").pop()?.toLowerCase();
+  if (!ext) return undefined;
+  const known: Record<string, string> = {
+    pdf: "application/pdf",
+    txt: "text/plain",
+    md: "text/markdown",
+    json: "application/json",
+    csv: "text/csv",
+    tsv: "text/tab-separated-values",
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    webp: "image/webp",
+    gif: "image/gif",
+  };
+  return known[ext];
 }
 
 function dirname(path: string): string {
