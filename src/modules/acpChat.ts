@@ -80,6 +80,7 @@ const markdown = new MarkdownIt({
   html: false,
   linkify: true,
   typographer: false,
+  xhtmlOut: true,
 });
 const renderMarkdownLink =
   markdown.renderer.rules.link_open ??
