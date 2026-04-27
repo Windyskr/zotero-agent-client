@@ -62,6 +62,8 @@ export type FluentMessageId =
   | 'acpchat-thinking-medium'
   | 'acpchat-toolbar-button-label'
   | 'acpchat-toolbar-button-title'
+  | 'acpchat-tools-processed'
+  | 'acpchat-tools-processing'
   | 'acpchat-topic-list-label'
   | 'acpchat-topic-untitled'
   | 'pref-agent-profiles'

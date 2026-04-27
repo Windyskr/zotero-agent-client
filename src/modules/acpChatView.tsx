@@ -15,7 +15,7 @@ import type {
 import { createZoteroReactRoot, getZoteroReact } from "./zoteroReact";
 
 const React = getZoteroReact();
-const { useMemo, useState } = React;
+const { useEffect, useMemo, useRef, useState } = React;
 
 export interface ChatStatus {
   kind: StatusKind;
@@ -227,6 +227,7 @@ export function AcpChatPanel({
     }
 
     setIsRunning(true);
+    setInput("");
     try {
       await onSend({
         agentId,
@@ -286,21 +287,32 @@ export function AcpChatPanel({
         }}
         onToggleHistory={() => setIsHistoryOpen((current) => !current)}
       />
+      {isHistoryOpen && (
+        <button
+          aria-label={l10n("acpchat-history-button", "History")}
+          className="acpchat-history-backdrop"
+          onClick={() => setIsHistoryOpen(false)}
+          type="button"
+        />
+      )}
+      <div
+        className={`acpchat-history-drawer${isHistoryOpen ? " is-open" : ""}`}
+      >
+        <TopicList
+          activeTopicKey={record?.key}
+          disabled={isRunning || isHydrating}
+          l10n={l10n}
+          onSelect={(topicKey) => {
+            setIsHistoryOpen(false);
+            void handleTopicSelect(topicKey);
+          }}
+          topics={topics}
+        />
+      </div>
       {isAgentSwitching ? (
         <LoadingCard l10n={l10n} />
       ) : (
         <>
-          {isHistoryOpen && (
-            <TopicList
-              activeTopicKey={record?.key}
-              disabled={isRunning || isHydrating}
-              l10n={l10n}
-              onSelect={(topicKey) => {
-                void handleTopicSelect(topicKey);
-              }}
-              topics={topics}
-            />
-          )}
           <MessageList
             hasPdf={!!pdf}
             l10n={l10n}
@@ -491,30 +503,202 @@ function MessageList({
   messages: ChatMessage[];
   renderMarkdown: (text: string) => string;
 }) {
+  const [nowMs, setNowMs] = useState(Date.now());
+  const listRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    const node = listRef.current;
+    if (!node) return;
+    const win = node.ownerDocument?.defaultView;
+    if (win?.requestAnimationFrame) {
+      const frame = win.requestAnimationFrame(() => {
+        node.scrollTop = node.scrollHeight;
+      });
+      return () => win.cancelAnimationFrame(frame);
+    }
+    node.scrollTop = node.scrollHeight;
+  }, [messages]);
+
   const visibleMessages = messages.filter(
     (message) => !isAttachedPdfSystemMessage(message),
   );
-  const showEmpty = hasPdf && visibleMessages.length === 0;
+  const turns = groupMessagesIntoTurns(visibleMessages);
+  const showEmpty = hasPdf && turns.length === 0;
 
   return (
-    <div className="acpchat-messages">
+    <div className="acpchat-messages" ref={listRef}>
       {!hasPdf ? (
         <EmptyState kind="missing-pdf" l10n={l10n} />
       ) : (
         <>
           {showEmpty && <EmptyState kind="no-history" l10n={l10n} />}
-          {visibleMessages.map((message) => (
-            <MessageItem
-              key={message.id}
-              l10n={l10n}
-              message={message}
-              renderMarkdown={renderMarkdown}
-            />
+          {turns.map((turn) => (
+            <section className="acpchat-turn" key={turn.id}>
+              {turn.userMessage && (
+                <MessageItem
+                  l10n={l10n}
+                  message={turn.userMessage}
+                  renderMarkdown={renderMarkdown}
+                />
+              )}
+              <TurnToolStack l10n={l10n} nowMs={nowMs} turn={turn} />
+              {turn.responseMessages
+                .filter((message) => !isMetaRole(message.role))
+                .map((message) => (
+                  <MessageItem
+                    key={message.id}
+                    l10n={l10n}
+                    message={message}
+                    renderMarkdown={renderMarkdown}
+                  />
+                ))}
+            </section>
           ))}
         </>
       )}
     </div>
   );
+}
+
+interface ChatTurn {
+  id: string;
+  userMessage: ChatMessage | null;
+  responseMessages: ChatMessage[];
+}
+
+function TurnToolStack({
+  l10n,
+  nowMs,
+  turn,
+}: {
+  l10n: Localize;
+  nowMs: number;
+  turn: ChatTurn;
+}) {
+  const toolMessages = turn.responseMessages.filter((message) =>
+    isMetaRole(message.role),
+  );
+  if (!toolMessages.length) return null;
+
+  const isActive = toolMessages.some(
+    (message) => message.status === "streaming",
+  );
+  const elapsedSeconds = getTurnElapsedSeconds(turn, nowMs, isActive);
+  const durationLabel = formatElapsedDuration(elapsedSeconds);
+
+  return (
+    <details className="acpchat-turn-tools" open={isActive}>
+      <summary className="acpchat-turn-tools-summary">
+        <span className="acpchat-turn-tools-state">
+          {l10n("acpchat-tools-processed", "已处理 {duration}", {
+            duration: durationLabel,
+          })}
+        </span>
+        {!isActive && <span className="acpchat-turn-tools-chevron">{">"}</span>}
+      </summary>
+      <div className="acpchat-turn-tools-list">
+        {toolMessages.map((message) => (
+          <ToolMessageItem key={message.id} l10n={l10n} message={message} />
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function groupMessagesIntoTurns(messages: ChatMessage[]): ChatTurn[] {
+  const turns: ChatTurn[] = [];
+  let currentTurn: ChatTurn | null = null;
+
+  for (const message of messages) {
+    if (message.role === "user") {
+      currentTurn = {
+        id: `turn-${message.id}`,
+        userMessage: message,
+        responseMessages: [],
+      };
+      turns.push(currentTurn);
+      continue;
+    }
+
+    if (!currentTurn) {
+      currentTurn = {
+        id: `turn-${message.id}`,
+        userMessage: null,
+        responseMessages: [message],
+      };
+      turns.push(currentTurn);
+      continue;
+    }
+
+    currentTurn.responseMessages.push(message);
+  }
+
+  return turns;
+}
+
+function getTurnElapsedSeconds(
+  turn: ChatTurn,
+  nowMs: number,
+  isActive: boolean,
+): number {
+  const start = toTimestamp(
+    turn.userMessage?.createdAt ??
+      turn.responseMessages[0]?.createdAt ??
+      new Date(nowMs).toISOString(),
+  );
+  const end = isActive
+    ? nowMs
+    : Math.max(
+        ...turn.responseMessages.map((message) =>
+          toTimestamp(message.createdAt),
+        ),
+        start,
+      );
+  return Math.max(1, Math.floor((end - start) / 1000));
+}
+
+function toTimestamp(iso: string): number {
+  const value = new Date(iso).getTime();
+  return Number.isNaN(value) ? Date.now() : value;
+}
+
+function formatElapsedDuration(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  if (!minutes) return `${seconds}s`;
+  return `${minutes}m ${remainder}s`;
+}
+
+function ToolMessageItem({
+  l10n,
+  message,
+}: {
+  l10n: Localize;
+  message: ChatMessage;
+}) {
+  return (
+    <div className="acpchat-tool-item">
+      <div className="acpchat-tool-item-meta">
+        <span>{getRoleLabel(message.role, l10n)}</span>
+        {formatMessageTime(message.createdAt) && (
+          <span>{formatMessageTime(message.createdAt)}</span>
+        )}
+        {message.status && message.status !== "done" && (
+          <span className="acpchat-message-state">
+            {getMessageStatusLabel(message.status, l10n)}
+          </span>
+        )}
+      </div>
+      <div className="acpchat-tool-item-body">{message.text}</div>
+    </div>
+  );
+}
+
+function isMetaRole(role: ChatRole): boolean {
+  return role === "tool" || role === "system";
 }
 
 function isAttachedPdfSystemMessage(message: ChatMessage): boolean {
@@ -568,8 +752,7 @@ function MessageItem({
           "Thinking through the paper...",
         )
       : "");
-  const canRenderMarkdown =
-    message.role === "assistant" || message.role === "tool";
+  const canRenderMarkdown = message.role === "assistant";
 
   return (
     <article

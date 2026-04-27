@@ -248,6 +248,7 @@ function injectStyles(): void {
         overflow-x: hidden;
         overflow-y: hidden;
         padding: 6px 8px 8px;
+        position: relative;
         width: 100%;
       }
       .acpchat-panel button,
@@ -279,6 +280,7 @@ function injectStyles(): void {
         gap: 5px;
         min-width: 0;
         padding: 7px 8px;
+        z-index: 2;
       }
       .acpchat-topbar-main {
         align-items: center;
@@ -321,7 +323,6 @@ function injectStyles(): void {
       }
       .acpchat-topic-list {
         display: flex;
-        flex: 0 0 auto;
         flex-direction: column;
         gap: 6px;
         min-width: 0;
@@ -337,8 +338,37 @@ function injectStyles(): void {
         display: flex;
         flex-direction: column;
         gap: 4px;
-        max-height: 108px;
+        max-height: min(34vh, 220px);
         overflow-y: auto;
+      }
+      .acpchat-history-backdrop {
+        background: transparent;
+        border: 0;
+        bottom: 0;
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: 50px;
+        z-index: 3;
+      }
+      .acpchat-history-drawer {
+        left: 8px;
+        opacity: 0;
+        pointer-events: none;
+        position: absolute;
+        right: 8px;
+        top: 50px;
+        transform: translateY(-4px);
+        transition: opacity 0.14s ease, transform 0.14s ease;
+        z-index: 4;
+      }
+      .acpchat-history-drawer.is-open {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+      .acpchat-history-drawer .acpchat-topic-list {
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15);
       }
       .acpchat-topic-item {
         align-items: center;
@@ -569,6 +599,13 @@ function injectStyles(): void {
         overflow-y: auto;
         padding: 8px;
         width: 100%;
+        z-index: 1;
+      }
+      .acpchat-turn {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
       }
       .acpchat-empty {
         background: var(--acpchat-surface-muted);
@@ -663,6 +700,76 @@ function injectStyles(): void {
         color: var(--acpchat-muted);
         font-size: 11px;
         padding: 2px 0;
+      }
+      .acpchat-turn-tools {
+        background: var(--acpchat-surface-muted);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 7px;
+        color: var(--acpchat-muted);
+        font-size: 10px;
+        min-width: 0;
+      }
+      .acpchat-turn-tools-summary {
+        align-items: center;
+        cursor: pointer;
+        display: flex;
+        gap: 6px;
+        justify-content: space-between;
+        list-style: none;
+        min-width: 0;
+        padding: 6px 8px;
+      }
+      .acpchat-turn-tools-summary::-webkit-details-marker {
+        display: none;
+      }
+      .acpchat-turn-tools-state {
+        color: var(--acpchat-muted);
+        font-size: 10px;
+        font-weight: 650;
+        min-width: 0;
+      }
+      .acpchat-turn-tools-state.is-active {
+        color: #8a5a00;
+      }
+      .acpchat-turn-tools-chevron {
+        color: var(--acpchat-muted);
+        flex: 0 0 auto;
+        font-size: 11px;
+        font-weight: 700;
+        transform: translateY(-0.5px);
+      }
+      .acpchat-turn-tools[open] .acpchat-turn-tools-chevron {
+        transform: rotate(90deg);
+      }
+      .acpchat-turn-tools-list {
+        border-top: 1px dashed var(--acpchat-border);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 5px 8px 8px;
+      }
+      .acpchat-tool-item {
+        background: var(--acpchat-surface);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 6px;
+        min-width: 0;
+        padding: 5px 6px;
+      }
+      .acpchat-tool-item-meta {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .acpchat-tool-item-body {
+        color: var(--acpchat-muted);
+        margin-top: 2px;
+        overflow-wrap: anywhere;
+        white-space: normal;
+        word-break: break-word;
+      }
+      .acpchat-turn-tools:not([open]) .acpchat-turn-tools-summary {
+        border-bottom: 1px solid var(--acpchat-border);
       }
       .acpchat-message-status-error .acpchat-message-body {
         border-color: rgba(179, 38, 30, 0.25);
