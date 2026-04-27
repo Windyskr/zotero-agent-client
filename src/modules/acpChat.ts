@@ -3,6 +3,7 @@ import MarkdownIt from "markdown-it";
 import type {
   AcpChatRoot,
   ChatStatus,
+  LoadAgentStateRequest,
   NewTopicRequest,
   SetConfigOptionRequest,
   SendPromptRequest,
@@ -51,11 +52,19 @@ export interface ChatMessage {
 
 export interface SessionRecord {
   key: string;
+  topicId: string;
   agentId: string;
   sessionId?: string;
   pdfItemID: number;
   pdfPathHash: string;
   messages: ChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TopicSummary {
+  key: string;
+  title: string;
   updatedAt: string;
 }
 
@@ -231,6 +240,7 @@ function injectStyles(): void {
         font: inherit !important;
       }
       .acpchat-topbar,
+      .acpchat-topic-list,
       .acpchat-header,
       .acpchat-context-card,
       .acpchat-messages,
@@ -268,6 +278,54 @@ function injectStyles(): void {
       }
       .acpchat-agent-select {
         width: 100%;
+      }
+      .acpchat-topic-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+        padding: 7px 8px;
+      }
+      .acpchat-topic-list-label {
+        color: var(--acpchat-muted);
+        font-size: 10px;
+        font-weight: 650;
+        line-height: 1.2;
+      }
+      .acpchat-topic-list-items {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-height: 108px;
+        overflow-y: auto;
+      }
+      .acpchat-topic-item {
+        align-items: center;
+        background: var(--acpchat-surface-muted);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 6px;
+        color: var(--acpchat-text);
+        display: grid;
+        gap: 6px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        min-width: 0;
+        padding: 4px 6px;
+        text-align: left;
+      }
+      .acpchat-topic-item.is-active {
+        border-color: var(--acpchat-accent-border);
+        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.16);
+      }
+      .acpchat-topic-title {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .acpchat-topic-time {
+        color: var(--acpchat-muted);
+        font-size: 10px;
+        line-height: 1.2;
       }
       .acpchat-header {
         align-items: center;
@@ -935,10 +993,17 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
   const pdf = await resolvePdfContext(item);
   let activeSessionId: string | null = null;
 
-  const initialRecord = pdf
-    ? await getOrCreateRecord(store, pdf, settings.defaultAgent)
+  const initialLoadedState = pdf
+    ? await loadAgentState(
+        store,
+        pdf,
+        settings.agentProfiles,
+        settings.defaultAgent,
+      )
     : null;
-  const initialConfigOptions: SessionConfigOption[] = [];
+  const initialRecord = initialLoadedState?.record ?? null;
+  const initialTopics = initialLoadedState?.topics ?? [];
+  const initialConfigOptions = initialLoadedState?.configOptions ?? [];
   const initialStatus: ChatStatus = pdf
     ? {
         kind: "ready",
@@ -954,6 +1019,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
     includePdf,
     record,
     setConfigOptions,
+    setTopics,
     setRecord,
     setStatus,
     text,
@@ -983,6 +1049,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
     };
     setRecord(nextRecord);
     await store.upsert(nextRecord);
+    setTopics(await listTopicSummaries(store, pdf, profile.id));
 
     const client = getClient(profile);
     const removeUpdate = client.onUpdate((update) => {
@@ -1001,6 +1068,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
       );
       setRecord(nextRecord);
       void store.upsert(nextRecord);
+      void listTopicSummaries(store, pdf, profile.id).then(setTopics);
     });
 
     try {
@@ -1027,6 +1095,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
       };
       await store.upsert(nextRecord);
       setRecord(nextRecord);
+      setTopics(await listTopicSummaries(store, pdf, profile.id));
       setStatus({
         kind: "busy",
         text: getMainWindowString("acpchat-status-running", "Running"),
@@ -1060,6 +1129,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
       );
       await store.upsert(nextRecord);
       setRecord(nextRecord);
+      setTopics(await listTopicSummaries(store, pdf, profile.id));
       setStatus({ kind: "error", text: toMessage(error) });
     } finally {
       activeSessionId = null;
@@ -1079,6 +1149,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
   const onNewTopic = async ({
     agentId,
     setConfigOptions,
+    setTopics,
     setRecord,
     setStatus,
   }: NewTopicRequest) => {
@@ -1086,14 +1157,58 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
     activeSessionId = null;
     const nextRecord = makeInitialRecord(pdf, agentId);
     await store.upsert(nextRecord);
-    setConfigOptions([]);
-    setRecord(nextRecord);
+    const profile = settings.agentProfiles.find(
+      (candidate) => candidate.id === agentId,
+    );
+    if (!profile) return;
+    const session = await getClient(profile).loadOrCreateSession(
+      nextRecord.sessionId,
+      pdf.cwd,
+    );
+    const nextWithSession = {
+      ...nextRecord,
+      sessionId: session.sessionId,
+      updatedAt: new Date().toISOString(),
+    };
+    await store.upsert(nextWithSession);
+    setConfigOptions(session.configOptions);
+    setTopics(await listTopicSummaries(store, pdf, agentId));
+    setRecord(nextWithSession);
     setStatus({
       kind: "ready",
       text: getMainWindowString(
         "acpchat-status-new-topic",
         "New topic started",
       ),
+    });
+  };
+
+  const onLoadAgentState = async ({
+    agentId,
+    preferredTopicKey,
+    setConfigOptions,
+    setTopics,
+    setRecord,
+    setStatus,
+  }: LoadAgentStateRequest) => {
+    if (!pdf) return;
+    setStatus({
+      kind: "busy",
+      text: getMainWindowString("acpchat-status-loading", "Loading session..."),
+    });
+    const loaded = await loadAgentState(
+      store,
+      pdf,
+      settings.agentProfiles,
+      agentId,
+      preferredTopicKey,
+    );
+    setRecord(loaded.record);
+    setTopics(loaded.topics);
+    setConfigOptions(loaded.configOptions);
+    setStatus({
+      kind: "ready",
+      text: getMainWindowString("acpchat-status-ready", "Ready"),
     });
   };
 
@@ -1123,8 +1238,10 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
     initialConfigOptions,
     initialRecord,
     initialStatus,
+    initialTopics,
     l10n: getMainWindowString,
     onCancel,
+    onLoadAgentState,
     onSetConfigOption,
     onNewTopic,
     onSend,
@@ -1539,8 +1656,8 @@ class AcpClient {
 class FileSessionStore {
   constructor(private configuredPath: string) {}
 
-  async get(key: string): Promise<SessionRecord | undefined> {
-    return (await this.read()).records.find((record) => record.key === key);
+  async list(): Promise<SessionRecord[]> {
+    return (await this.read()).records;
   }
 
   async upsert(record: SessionRecord): Promise<void> {
@@ -1565,9 +1682,9 @@ class FileSessionStore {
 
   private async read(): Promise<StoreDocument> {
     try {
-      return JSON.parse(
-        await IOUtils.readUTF8(await this.path()),
-      ) as StoreDocument;
+      return normalizeStoreDocument(
+        JSON.parse(await IOUtils.readUTF8(await this.path())) as StoreDocument,
+      );
     } catch {
       return { version: 1, records: [] };
     }
@@ -1583,6 +1700,41 @@ class FileSessionStore {
   }
 }
 
+function normalizeStoreDocument(store: StoreDocument): StoreDocument {
+  if (!store || typeof store !== "object" || !Array.isArray(store.records)) {
+    return { version: 1, records: [] };
+  }
+  const normalized: SessionRecord[] = [];
+  for (const record of store.records ?? []) {
+    if (!record || typeof record !== "object") continue;
+    const key = String(record.key || "");
+    const topicId =
+      typeof record.topicId === "string" && record.topicId
+        ? record.topicId
+        : key.split(":").slice(3).join(":") || makeTopicId();
+    const updatedAt =
+      typeof record.updatedAt === "string" && record.updatedAt
+        ? record.updatedAt
+        : new Date().toISOString();
+    normalized.push({
+      key,
+      topicId,
+      agentId: String(record.agentId || "codex"),
+      sessionId:
+        typeof record.sessionId === "string" ? record.sessionId : undefined,
+      pdfItemID: Number(record.pdfItemID || 0),
+      pdfPathHash: String(record.pdfPathHash || ""),
+      messages: Array.isArray(record.messages) ? record.messages : [],
+      createdAt:
+        typeof record.createdAt === "string" && record.createdAt
+          ? record.createdAt
+          : updatedAt,
+      updatedAt,
+    });
+  }
+  return { version: 1, records: normalized.filter((record) => !!record.key) };
+}
+
 function getClient(profile: AgentProfile): AcpClient {
   const existing = clientPool.get(profile.id);
   if (existing) return existing;
@@ -1591,27 +1743,128 @@ function getClient(profile: AgentProfile): AcpClient {
   return client;
 }
 
-async function getOrCreateRecord(
+async function loadAgentState(
+  store: FileSessionStore,
+  pdf: PdfContext,
+  agentProfiles: AgentProfile[],
+  agentId: string,
+  preferredTopicKey?: string,
+): Promise<{
+  record: SessionRecord;
+  topics: TopicSummary[];
+  configOptions: SessionConfigOption[];
+}> {
+  const profile = agentProfiles.find((candidate) => candidate.id === agentId);
+  if (!profile) {
+    throw new Error(
+      getMainWindowString(
+        "acpchat-error-invalid-agent",
+        "Select a valid ACP agent",
+      ),
+    );
+  }
+  let records = await listRecordsForPdfAgent(store, pdf, agentId);
+  if (!records.length) {
+    const firstRecord = makeInitialRecord(pdf, agentId);
+    await store.upsert(firstRecord);
+    records = [firstRecord];
+  }
+  const record = selectPreferredRecord(records, preferredTopicKey);
+  const session = await getClient(profile).loadOrCreateSession(
+    record.sessionId,
+    pdf.cwd,
+  );
+  const withSession =
+    record.sessionId === session.sessionId
+      ? record
+      : {
+          ...record,
+          sessionId: session.sessionId,
+          updatedAt: new Date().toISOString(),
+        };
+  if (withSession !== record) {
+    await store.upsert(withSession);
+  }
+  return {
+    record: withSession,
+    topics: await listTopicSummaries(store, pdf, agentId),
+    configOptions: session.configOptions,
+  };
+}
+
+async function listTopicSummaries(
   store: FileSessionStore,
   pdf: PdfContext,
   agentId: string,
-): Promise<SessionRecord> {
-  return (await store.get(sessionKey(pdf))) ?? makeInitialRecord(pdf, agentId);
+): Promise<TopicSummary[]> {
+  const records = await listRecordsForPdfAgent(store, pdf, agentId);
+  return records.map((record) => ({
+    key: record.key,
+    title: topicTitle(record),
+    updatedAt: record.updatedAt,
+  }));
+}
+
+async function listRecordsForPdfAgent(
+  store: FileSessionStore,
+  pdf: PdfContext,
+  agentId: string,
+): Promise<SessionRecord[]> {
+  const base = sessionKeyBase(pdf);
+  return (await store.list())
+    .filter((record) => record.agentId === agentId)
+    .filter(
+      (record) => record.key === base || record.key.startsWith(`${base}:`),
+    )
+    .sort(
+      (left, right) =>
+        new Date(right.updatedAt).getTime() -
+        new Date(left.updatedAt).getTime(),
+    );
+}
+
+function selectPreferredRecord(
+  records: SessionRecord[],
+  preferredTopicKey?: string,
+): SessionRecord {
+  if (preferredTopicKey) {
+    const preferred = records.find(
+      (record) => record.key === preferredTopicKey,
+    );
+    if (preferred) return preferred;
+  }
+  return records[0];
+}
+
+function topicTitle(record: SessionRecord): string {
+  const firstUser = record.messages.find(
+    (message) => message.role === "user" && message.text.trim(),
+  );
+  if (!firstUser) return "";
+  return firstUser.text.trim().replace(/\s+/g, " ").slice(0, 60);
 }
 
 function makeInitialRecord(pdf: PdfContext, agentId: string): SessionRecord {
+  const now = new Date().toISOString();
+  const topicId = makeTopicId();
   return {
-    key: sessionKey(pdf),
+    key: `${sessionKeyBase(pdf)}:${topicId}`,
+    topicId,
     agentId,
     pdfItemID: pdf.itemID,
     pdfPathHash: simpleHash(pdf.filePath),
     messages: [makeAttachedPdfMessage(pdf)],
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
-function sessionKey(pdf: PdfContext): string {
+function sessionKeyBase(pdf: PdfContext): string {
   return `${pdf.libraryID}:${pdf.sourceItemID}:${pdf.itemID}`;
+}
+
+function makeTopicId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function makeAttachedPdfMessage(pdf: PdfContext): ChatMessage {

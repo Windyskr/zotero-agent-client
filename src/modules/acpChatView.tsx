@@ -9,6 +9,7 @@ import type {
   SessionRecord,
   Settings,
   StatusKind,
+  TopicSummary,
 } from "./acpChat";
 import { createZoteroReactRoot, getZoteroReact } from "./zoteroReact";
 
@@ -25,6 +26,7 @@ export interface SendPromptRequest {
   includePdf: boolean;
   record: SessionRecord;
   setConfigOptions: (options: SessionConfigOption[]) => void;
+  setTopics: (topics: TopicSummary[]) => void;
   setRecord: (record: SessionRecord) => void;
   setStatus: (status: ChatStatus) => void;
   text: string;
@@ -40,6 +42,16 @@ export interface SetConfigOptionRequest {
 export interface NewTopicRequest {
   agentId: string;
   setConfigOptions: (options: SessionConfigOption[]) => void;
+  setTopics: (topics: TopicSummary[]) => void;
+  setRecord: (record: SessionRecord) => void;
+  setStatus: (status: ChatStatus) => void;
+}
+
+export interface LoadAgentStateRequest {
+  agentId: string;
+  preferredTopicKey?: string;
+  setConfigOptions: (options: SessionConfigOption[]) => void;
+  setTopics: (topics: TopicSummary[]) => void;
   setRecord: (record: SessionRecord) => void;
   setStatus: (status: ChatStatus) => void;
 }
@@ -54,8 +66,10 @@ export interface AcpChatPanelProps {
   initialConfigOptions: SessionConfigOption[];
   initialRecord: SessionRecord | null;
   initialStatus: ChatStatus;
+  initialTopics: TopicSummary[];
   l10n: Localize;
   onCancel: (agentId: string) => boolean;
+  onLoadAgentState: (request: LoadAgentStateRequest) => Promise<void>;
   onSetConfigOption: (
     request: SetConfigOptionRequest,
   ) => Promise<SessionConfigOption[]>;
@@ -76,8 +90,10 @@ export function AcpChatPanel({
   initialConfigOptions,
   initialRecord,
   initialStatus,
+  initialTopics,
   l10n,
   onCancel,
+  onLoadAgentState,
   onSetConfigOption,
   onNewTopic,
   onSend,
@@ -90,9 +106,11 @@ export function AcpChatPanel({
   );
   const [input, setInput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(false);
   const [record, setRecord] = useState(initialRecord);
   const [status, setStatus] = useState(initialStatus);
   const [configOptions, setConfigOptions] = useState(initialConfigOptions);
+  const [topics, setTopics] = useState(initialTopics);
   const [includePdf, setIncludePdf] = useState(!!pdf);
 
   const selectedAgent = useMemo(
@@ -102,18 +120,58 @@ export function AcpChatPanel({
 
   const messages = record?.messages ?? [];
 
-  const handleAgentChange = (nextAgentId: string) => {
+  const handleAgentChange = async (nextAgentId: string) => {
+    if (isRunning) return;
     setAgentId(nextAgentId);
-    setConfigOptions([]);
+    setIsHydrating(true);
+    try {
+      await onLoadAgentState({
+        agentId: nextAgentId,
+        setConfigOptions,
+        setTopics,
+        setRecord,
+        setStatus,
+      });
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        text: String(error),
+      });
+    } finally {
+      setIsHydrating(false);
+    }
+  };
+
+  const handleTopicSelect = async (topicKey: string) => {
+    if (isRunning || isHydrating) return;
+    setIsHydrating(true);
+    try {
+      await onLoadAgentState({
+        agentId,
+        preferredTopicKey: topicKey,
+        setConfigOptions,
+        setTopics,
+        setRecord,
+        setStatus,
+      });
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        text: String(error),
+      });
+    } finally {
+      setIsHydrating(false);
+    }
   };
 
   const handleNewTopic = async () => {
-    if (!pdf || isRunning) return;
+    if (!pdf || isRunning || isHydrating) return;
     setIsRunning(true);
     try {
       await onNewTopic({
         agentId,
         setConfigOptions,
+        setTopics,
         setRecord,
         setStatus,
       });
@@ -125,7 +183,7 @@ export function AcpChatPanel({
   };
 
   const handleSend = async () => {
-    if (!pdf || !record || isRunning) return;
+    if (!pdf || !record || isRunning || isHydrating) return;
     if (!selectedAgent) {
       setStatus({
         kind: "error",
@@ -150,6 +208,7 @@ export function AcpChatPanel({
         includePdf: !!pdf && includePdf,
         record,
         setConfigOptions,
+        setTopics,
         setRecord,
         setStatus,
         text,
@@ -189,9 +248,21 @@ export function AcpChatPanel({
       <TopAgentBar
         agentId={agentId}
         agents={settings.agentProfiles}
+        disabled={isRunning || isHydrating}
         l10n={l10n}
-        onAgentChange={handleAgentChange}
+        onAgentChange={(nextAgentId) => {
+          void handleAgentChange(nextAgentId);
+        }}
         status={status}
+      />
+      <TopicList
+        activeTopicKey={record?.key}
+        disabled={isRunning || isHydrating}
+        l10n={l10n}
+        onSelect={(topicKey) => {
+          void handleTopicSelect(topicKey);
+        }}
+        topics={topics}
       />
       <MessageList
         hasPdf={!!pdf}
@@ -204,7 +275,7 @@ export function AcpChatPanel({
         hasPdf={!!pdf}
         includePdf={includePdf}
         input={input}
-        isRunning={isRunning}
+        isRunning={isRunning || isHydrating}
         l10n={l10n}
         configOptions={configOptions}
         onInputChange={setInput}
@@ -255,12 +326,14 @@ export function createAcpChatRoot(container: HTMLElement): AcpChatRoot {
 function TopAgentBar({
   agentId,
   agents,
+  disabled,
   l10n,
   onAgentChange,
   status,
 }: {
   agentId: string;
   agents: AgentProfile[];
+  disabled: boolean;
   l10n: Localize;
   onAgentChange: (agentId: string) => void;
   status: ChatStatus;
@@ -273,7 +346,7 @@ function TopAgentBar({
       <div className="acpchat-topbar-main">
         <select
           className="acpchat-select acpchat-agent-select"
-          disabled={!agents.length}
+          disabled={disabled || !agents.length}
           onChange={(event) => onAgentChange(event.currentTarget.value)}
           value={agents.length ? agentId : ""}
         >
@@ -294,6 +367,50 @@ function TopAgentBar({
         </div>
       </div>
     </header>
+  );
+}
+
+function TopicList({
+  activeTopicKey,
+  disabled,
+  l10n,
+  onSelect,
+  topics,
+}: {
+  activeTopicKey?: string;
+  disabled: boolean;
+  l10n: Localize;
+  onSelect: (topicKey: string) => void;
+  topics: TopicSummary[];
+}) {
+  if (!topics.length) return null;
+  return (
+    <section className="acpchat-topic-list">
+      <div className="acpchat-topic-list-label">
+        {l10n("acpchat-topic-list-label", "History")}
+      </div>
+      <div className="acpchat-topic-list-items">
+        {topics.map((topic) => (
+          <button
+            key={topic.key}
+            className={`acpchat-topic-item${
+              topic.key === activeTopicKey ? " is-active" : ""
+            }`}
+            disabled={disabled}
+            onClick={() => onSelect(topic.key)}
+            type="button"
+          >
+            <span className="acpchat-topic-title">
+              {topic.title ||
+                l10n("acpchat-topic-untitled", "Untitled conversation")}
+            </span>
+            <span className="acpchat-topic-time">
+              {formatMessageTime(topic.updatedAt)}
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
