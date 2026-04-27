@@ -1,6 +1,11 @@
 import { config } from "../../package.json";
 import MarkdownIt from "markdown-it";
-import type { AcpChatRoot, ChatStatus, SendPromptRequest } from "./acpChatView";
+import type {
+  AcpChatRoot,
+  ChatStatus,
+  NewTopicRequest,
+  SendPromptRequest,
+} from "./acpChatView";
 
 export type ChatRole = "user" | "assistant" | "tool" | "system";
 
@@ -213,9 +218,40 @@ function injectStyles(): void {
         min-width: 0;
         padding: 6px 8px;
       }
+      .acpchat-header-actions {
+        align-items: center;
+        display: flex;
+        flex: 0 1 auto;
+        gap: 6px;
+        justify-content: flex-end;
+        max-width: 58%;
+        min-width: 0;
+        overflow: hidden;
+      }
+      .acpchat-new-topic {
+        background: var(--acpchat-surface-muted);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 999px;
+        color: var(--acpchat-muted);
+        flex: 0 1 auto;
+        font-size: 10px;
+        font-weight: 650;
+        line-height: 1.2;
+        max-width: 74px;
+        min-height: 24px;
+        min-width: 0;
+        overflow: hidden;
+        padding: 2px 7px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .acpchat-new-topic:disabled {
+        opacity: 0.48;
+      }
       .acpchat-brand {
         align-items: center;
         display: flex;
+        flex: 1 1 auto;
         gap: 7px;
         min-width: 0;
       }
@@ -261,7 +297,7 @@ function injectStyles(): void {
         font-size: 10px;
         font-weight: 600;
         line-height: 1;
-        max-width: 42%;
+        max-width: 96px;
         overflow: hidden;
         padding: 4px 7px;
         text-overflow: ellipsis;
@@ -362,11 +398,13 @@ function injectStyles(): void {
         flex: 1;
         flex-direction: column;
         gap: 8px;
+        max-height: min(44vh, 360px);
         max-width: 100%;
         min-height: 180px;
         min-width: 0;
         overflow: auto;
         overflow-x: hidden;
+        overflow-y: auto;
         padding: 8px;
       }
       .acpchat-empty {
@@ -539,8 +577,10 @@ function injectStyles(): void {
       .acpchat-input {
         display: block;
         line-height: 1.4;
+        max-height: 148px;
         max-width: 100%;
         min-height: 68px;
+        overflow: hidden auto;
         overflow-x: hidden;
         overflow-wrap: anywhere;
         padding: 6px 7px;
@@ -902,6 +942,25 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
     return true;
   };
 
+  const onNewTopic = async ({
+    agentId,
+    setRecord,
+    setStatus,
+  }: NewTopicRequest) => {
+    if (!pdf) return;
+    activeSessionId = null;
+    const nextRecord = makeInitialRecord(pdf, agentId);
+    await store.upsert(nextRecord);
+    setRecord(nextRecord);
+    setStatus({
+      kind: "ready",
+      text: getMainWindowString(
+        "acpchat-status-new-topic",
+        "New topic started",
+      ),
+    });
+  };
+
   if (panelRoots.get(body) !== root) return;
   root.renderPanel({
     buildPrompt,
@@ -909,6 +968,7 @@ async function renderPanelAsync(body: HTMLElement, item: any): Promise<void> {
     initialStatus,
     l10n: getMainWindowString,
     onCancel,
+    onNewTopic,
     onSend,
     pdf,
     renderMarkdown: (text: string) => markdown.render(text),
@@ -1277,28 +1337,35 @@ async function getOrCreateRecord(
   pdf: PdfContext,
   agentId: string,
 ): Promise<SessionRecord> {
-  const key = `${pdf.libraryID}:${pdf.sourceItemID}:${pdf.itemID}`;
-  return (
-    (await store.get(key)) ?? {
-      key,
-      agentId,
-      pdfItemID: pdf.itemID,
-      pdfPathHash: simpleHash(pdf.filePath),
-      messages: [
-        makeMessage(
-          "system",
-          getMainWindowString(
-            "acpchat-system-attached-pdf",
-            "Attached PDF: {fileName}",
-            {
-              fileName: pdf.fileName,
-            },
-          ),
-          "done",
-        ),
-      ],
-      updatedAt: new Date().toISOString(),
-    }
+  return (await store.get(sessionKey(pdf))) ?? makeInitialRecord(pdf, agentId);
+}
+
+function makeInitialRecord(pdf: PdfContext, agentId: string): SessionRecord {
+  return {
+    key: sessionKey(pdf),
+    agentId,
+    pdfItemID: pdf.itemID,
+    pdfPathHash: simpleHash(pdf.filePath),
+    messages: [makeAttachedPdfMessage(pdf)],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function sessionKey(pdf: PdfContext): string {
+  return `${pdf.libraryID}:${pdf.sourceItemID}:${pdf.itemID}`;
+}
+
+function makeAttachedPdfMessage(pdf: PdfContext): ChatMessage {
+  return makeMessage(
+    "system",
+    getMainWindowString(
+      "acpchat-system-attached-pdf",
+      "Attached PDF: {fileName}",
+      {
+        fileName: pdf.fileName,
+      },
+    ),
+    "done",
   );
 }
 

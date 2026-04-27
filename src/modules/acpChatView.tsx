@@ -28,6 +28,12 @@ export interface SendPromptRequest {
   text: string;
 }
 
+export interface NewTopicRequest {
+  agentId: string;
+  setRecord: (record: SessionRecord) => void;
+  setStatus: (status: ChatStatus) => void;
+}
+
 export type Localize = (
   id: string,
   fallback: string,
@@ -40,6 +46,7 @@ export interface AcpChatPanelProps {
   initialStatus: ChatStatus;
   l10n: Localize;
   onCancel: (agentId: string) => boolean;
+  onNewTopic: (request: NewTopicRequest) => Promise<void>;
   onSend: (request: SendPromptRequest) => Promise<void>;
   pdf: PdfContext | null;
   renderMarkdown: (text: string) => string;
@@ -58,6 +65,7 @@ export function AcpChatPanel({
   initialStatus,
   l10n,
   onCancel,
+  onNewTopic,
   onSend,
   pdf,
   renderMarkdown,
@@ -127,11 +135,31 @@ export function AcpChatPanel({
     }
   };
 
+  const handleNewTopic = async () => {
+    if (!pdf || isRunning) return;
+    setIsRunning(true);
+    try {
+      await onNewTopic({
+        agentId,
+        setRecord,
+        setStatus,
+      });
+      setInput(buildPrompt(presetId));
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   const messages = record?.messages ?? [];
 
   return (
     <section className={`acpchat-panel${pdf ? "" : " acpchat-panel-no-pdf"}`}>
-      <PanelHeader l10n={l10n} status={status} />
+      <PanelHeader
+        disableNewTopic={!pdf || isRunning}
+        l10n={l10n}
+        onNewTopic={handleNewTopic}
+        status={status}
+      />
       <PdfContextCard l10n={l10n} pdf={pdf} />
       <Controls
         agentId={agentId}
@@ -194,7 +222,17 @@ export function createAcpChatRoot(container: HTMLElement): AcpChatRoot {
   };
 }
 
-function PanelHeader({ l10n, status }: { l10n: Localize; status: ChatStatus }) {
+function PanelHeader({
+  disableNewTopic,
+  l10n,
+  onNewTopic,
+  status,
+}: {
+  disableNewTopic: boolean;
+  l10n: Localize;
+  onNewTopic: () => void;
+  status: ChatStatus;
+}) {
   return (
     <header className="acpchat-header">
       <div className="acpchat-brand">
@@ -210,8 +248,18 @@ function PanelHeader({ l10n, status }: { l10n: Localize; status: ChatStatus }) {
           </div>
         </div>
       </div>
-      <div className={`acpchat-status-chip is-${status.kind}`}>
-        {status.text}
+      <div className="acpchat-header-actions">
+        <button
+          className="acpchat-new-topic"
+          disabled={disableNewTopic}
+          onClick={onNewTopic}
+          type="button"
+        >
+          {l10n("acpchat-new-topic-button", "New topic")}
+        </button>
+        <div className={`acpchat-status-chip is-${status.kind}`}>
+          {status.text}
+        </div>
       </div>
     </header>
   );
