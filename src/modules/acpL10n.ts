@@ -45,8 +45,21 @@ export function formatPlainTemplate(
 ): string {
   if (!args) return template;
   return template.replace(/\{\s*(\w+)\s*\}/g, (match, key) =>
-    Object.hasOwn(args, key) ? String(args[key] ?? "") : match,
+    Object.hasOwn(args, key) ? formatPlainValue(args[key]) : match,
   );
+}
+
+function formatPlainValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  ) {
+    return String(value);
+  }
+  return "";
 }
 
 function getLocalizationConstructor(): LocalizationConstructor {

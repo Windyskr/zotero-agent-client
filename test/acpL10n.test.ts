@@ -19,4 +19,11 @@ describe("ACP localization fallback", function () {
   it("formats nullish known values as empty strings", function () {
     assert.equal(formatPlainTemplate("File: {name}", { name: null }), "File: ");
   });
+
+  it("does not render object values as object placeholders", function () {
+    assert.equal(
+      formatPlainTemplate("Value: {value}", { value: { nested: true } }),
+      "Value: ",
+    );
+  });
 });
