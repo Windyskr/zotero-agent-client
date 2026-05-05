@@ -3,7 +3,10 @@ import type {
   AttachmentContext,
   PdfContext,
 } from "../src/modules/acpChatTypes";
-import { makePromptContent } from "../src/modules/acpPromptContent";
+import {
+  makePromptContent,
+  promptTextOrNull,
+} from "../src/modules/acpPromptContent";
 
 describe("ACP prompt content", function () {
   it("always starts with the prompt text", function () {
@@ -58,6 +61,14 @@ describe("ACP prompt content", function () {
         },
       ],
     );
+  });
+
+  it("preserves non-empty prompt text exactly while rejecting blanks", function () {
+    assert.equal(
+      promptTextOrNull("  keep my spacing  "),
+      "  keep my spacing  ",
+    );
+    assert.isNull(promptTextOrNull(" \n\t "));
   });
 });
 

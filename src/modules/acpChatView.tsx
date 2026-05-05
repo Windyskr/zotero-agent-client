@@ -8,6 +8,7 @@ import type {
   TopicSummary,
 } from "./acpChatTypes";
 import { toMessage } from "./acpChatUtils";
+import { promptTextOrNull } from "./acpPromptContent";
 import {
   Composer,
   LoadingCard,
@@ -299,7 +300,7 @@ export function AcpChatPanel({
       return;
     }
 
-    const text = input.trim();
+    const text = promptTextOrNull(input);
     if (!text) {
       setStatus({
         kind: "error",

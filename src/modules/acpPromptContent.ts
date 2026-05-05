@@ -44,6 +44,10 @@ export function makePromptContent(
   return content;
 }
 
+export function promptTextOrNull(input: string): string | null {
+  return input.trim() ? input : null;
+}
+
 function appendResourceLink(
   content: PromptContentPart[],
   resourceUris: Set<string>,
