@@ -15,6 +15,14 @@ describe("ACP chat utilities", function () {
       pathToFileUri("/tmp/My Paper.pdf"),
       "file:///tmp/My%20Paper.pdf",
     );
+    assert.equal(
+      pathToFileUri("C:\\Users\\ouyang\\My Paper.pdf"),
+      "file:///C:/Users/ouyang/My%20Paper.pdf",
+    );
+    assert.equal(
+      pathToFileUri("\\\\server\\share\\My Paper.pdf"),
+      "file://server/share/My%20Paper.pdf",
+    );
   });
 
   it("extracts path names and parent directories", function () {

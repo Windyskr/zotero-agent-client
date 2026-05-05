@@ -45,11 +45,20 @@ export function withTimeout<T>(
 }
 
 export function pathToFileUri(path: string): string {
-  return `file://${path
-    .replace(/\\/g, "/")
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/")}`;
+  const normalized = path.replace(/\\/g, "/");
+  const windowsDrive = normalized.match(/^([A-Za-z]:)(\/.*)?$/);
+  if (windowsDrive) {
+    return `file:///${windowsDrive[1]}${encodePathSegments(windowsDrive[2] ?? "")}`;
+  }
+  if (normalized.startsWith("//")) {
+    const [host = "", ...rest] = normalized.slice(2).split("/");
+    return `file://${encodeURIComponent(host)}/${rest.map(encodeURIComponent).join("/")}`;
+  }
+  return `file://${encodePathSegments(normalized)}`;
+}
+
+function encodePathSegments(path: string): string {
+  return path.split("/").map(encodeURIComponent).join("/");
 }
 
 export function basename(path: string): string {
