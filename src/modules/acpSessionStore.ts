@@ -8,6 +8,7 @@ import type {
 import { STORE_IO_TIMEOUT_MS, withTimeout } from "./acpChatUtils";
 import { getZoteroProfileDir } from "./acpZoteroRuntime";
 
+const FALLBACK_TIMESTAMP = "1970-01-01T00:00:00.000Z";
 const writeQueues = new Map<string, Promise<void>>();
 
 export class FileSessionStore {
@@ -112,10 +113,11 @@ export function normalizeStoreDocument(store: unknown): StoreDocument {
       typeof record.topicId === "string" && record.topicId
         ? record.topicId
         : key.split(":").slice(3).join(":") || makeTopicId();
-    const updatedAt =
-      typeof record.updatedAt === "string" && record.updatedAt
-        ? record.updatedAt
-        : new Date().toISOString();
+    const updatedAt = normalizeTimestamp(
+      record.updatedAt,
+      normalizeTimestamp(record.createdAt),
+    );
+    const createdAt = normalizeTimestamp(record.createdAt, updatedAt);
     normalized.push({
       key,
       topicId,
@@ -124,11 +126,8 @@ export function normalizeStoreDocument(store: unknown): StoreDocument {
         typeof record.sessionId === "string" ? record.sessionId : undefined,
       pdfItemID: toFiniteNumber(record.pdfItemID),
       pdfPathHash: String(record.pdfPathHash || ""),
-      messages: normalizeMessages(record.messages),
-      createdAt:
-        typeof record.createdAt === "string" && record.createdAt
-          ? record.createdAt
-          : updatedAt,
+      messages: normalizeMessages(record.messages, updatedAt),
+      createdAt,
       updatedAt,
     });
   }
@@ -149,8 +148,7 @@ function dedupeRecordsByKey(records: SessionRecord[]): SessionRecord[] {
 
 function isRecordNewer(candidate: SessionRecord, existing: SessionRecord) {
   return (
-    new Date(candidate.updatedAt).getTime() >=
-    new Date(existing.updatedAt).getTime()
+    timestampMillis(candidate.updatedAt) >= timestampMillis(existing.updatedAt)
   );
 }
 
@@ -158,7 +156,10 @@ function makeTopicId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function normalizeMessages(messages: unknown): ChatMessage[] {
+function normalizeMessages(
+  messages: unknown,
+  fallbackCreatedAt = FALLBACK_TIMESTAMP,
+): ChatMessage[] {
   if (!Array.isArray(messages)) return [];
   const normalized: ChatMessage[] = [];
   for (const message of messages) {
@@ -167,10 +168,7 @@ function normalizeMessages(messages: unknown): ChatMessage[] {
     if (!role) continue;
     const id =
       typeof message.id === "string" && message.id ? message.id : makeTopicId();
-    const createdAt =
-      typeof message.createdAt === "string" && message.createdAt
-        ? message.createdAt
-        : new Date().toISOString();
+    const createdAt = normalizeTimestamp(message.createdAt, fallbackCreatedAt);
     const status = normalizeStatus(message.status);
     normalized.push({
       id,
@@ -181,6 +179,21 @@ function normalizeMessages(messages: unknown): ChatMessage[] {
     });
   }
   return normalized;
+}
+
+function normalizeTimestamp(
+  value: unknown,
+  fallback = FALLBACK_TIMESTAMP,
+): string {
+  if (typeof value !== "string") return fallback;
+  const timestamp = value.trim();
+  if (!timestamp || !Number.isFinite(Date.parse(timestamp))) return fallback;
+  return timestamp;
+}
+
+function timestampMillis(value: string): number {
+  const millis = Date.parse(value);
+  return Number.isFinite(millis) ? millis : Number.NEGATIVE_INFINITY;
 }
 
 function normalizeRole(role: unknown): ChatRole | null {

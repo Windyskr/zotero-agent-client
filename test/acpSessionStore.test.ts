@@ -106,4 +106,67 @@ describe("ACP session store normalization", function () {
     assert.equal(store.records[0].updatedAt, "2026-01-02T00:00:00.000Z");
     assert.equal(store.records[0].messages[0].id, "newer");
   });
+
+  it("repairs invalid timestamps before deduplicating records", function () {
+    const store = normalizeStoreDocument({
+      records: [
+        {
+          key: "1:2:3:topic",
+          messages: [
+            {
+              id: "invalid",
+              role: "user",
+              text: "Invalid timestamp",
+              createdAt: "not-a-date",
+            },
+          ],
+          createdAt: "still-not-a-date",
+          updatedAt: "also-not-a-date",
+        },
+        {
+          key: "1:2:3:topic",
+          messages: [
+            {
+              id: "newer",
+              role: "user",
+              text: "Newer question",
+              createdAt: "2026-01-02T00:00:00.000Z",
+            },
+          ],
+          updatedAt: "2026-01-02T00:00:00.000Z",
+        },
+      ],
+    });
+
+    assert.lengthOf(store.records, 1);
+    assert.equal(store.records[0].updatedAt, "2026-01-02T00:00:00.000Z");
+    assert.equal(store.records[0].messages[0].id, "newer");
+  });
+
+  it("falls back to stable timestamps for malformed records", function () {
+    const store = normalizeStoreDocument({
+      records: [
+        {
+          key: "1:2:3:topic",
+          messages: [
+            {
+              id: "message",
+              role: "user",
+              text: "Question",
+              createdAt: "bad-date",
+            },
+          ],
+          createdAt: "bad-date",
+          updatedAt: "bad-date",
+        },
+      ],
+    });
+
+    assert.equal(store.records[0].createdAt, "1970-01-01T00:00:00.000Z");
+    assert.equal(store.records[0].updatedAt, "1970-01-01T00:00:00.000Z");
+    assert.equal(
+      store.records[0].messages[0].createdAt,
+      "1970-01-01T00:00:00.000Z",
+    );
+  });
 });
