@@ -26,7 +26,15 @@ describe("ACP markdown rendering", function () {
 
     assert.include(html, 'href="https://example.com"');
     assert.include(html, 'target="_blank"');
-    assert.include(html, 'rel="noreferrer"');
+    assert.include(html, 'rel="noopener noreferrer"');
+  });
+
+  it("does not treat hash links as external links", function () {
+    const html = createMarkdownRenderer().render("[section](#section)");
+
+    assert.include(html, 'href="#section"');
+    assert.notInclude(html, 'target="_blank"');
+    assert.notInclude(html, "rel=");
   });
 
   it("does not render unsafe links as anchors", function () {

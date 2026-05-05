@@ -17,12 +17,21 @@ export function createMarkdownRenderer(): MarkdownIt {
     ((tokens, index, options, _env, self) =>
       self.renderToken(tokens, index, options));
   markdown.renderer.rules.link_open = (tokens, index, options, env, self) => {
-    tokens[index].attrSet("target", "_blank");
-    tokens[index].attrSet("rel", "noreferrer");
+    const href = tokens[index].attrGet("href") ?? "";
+    if (isExternalMarkdownLink(href)) {
+      tokens[index].attrSet("target", "_blank");
+      tokens[index].attrSet("rel", "noopener noreferrer");
+    }
     return renderMarkdownLink(tokens, index, options, env, self);
   };
 
   return markdown;
+}
+
+function isExternalMarkdownLink(url: string): boolean {
+  const compact = stripAsciiControlsAndSpaces(url.trim());
+  const match = compact.match(/^([a-z][a-z0-9+.-]*):/i);
+  return !!match && SAFE_LINK_PROTOCOLS.has(match[1].toLowerCase());
 }
 
 export function isSafeMarkdownLink(url: string): boolean {
