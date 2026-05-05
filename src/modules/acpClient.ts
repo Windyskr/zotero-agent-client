@@ -519,7 +519,7 @@ function buildProcessEnvironment(
 ): Record<string, string> {
   const next: Record<string, string> = { ...env };
   if (!next.PATH && !next.Path) {
-    const mergedPath = collectSearchPathEntries(env).join(":");
+    const mergedPath = joinPathEntries(collectSearchPathEntries(env));
     if (mergedPath) next.PATH = mergedPath;
   }
   return next;
@@ -534,11 +534,27 @@ function collectSearchPathEntries(env: Record<string, string>): string[] {
   return Array.from(new Set([...pathEntries, ...processPath, ...defaults]));
 }
 
-function splitPathEntries(pathValue: string): string[] {
-  return pathValue
-    .split(":")
+export function splitPathEntries(pathValue: string): string[] {
+  const value = pathValue.trim();
+  if (!value) return [];
+  const separator = value.includes(";")
+    ? ";"
+    : /^[A-Za-z]:[\\/]/.test(value)
+      ? null
+      : ":";
+  const entries = separator ? value.split(separator) : [value];
+  return entries
     .map((entry) => expandHomePath(entry.trim()))
     .filter((entry) => !!entry);
+}
+
+export function joinPathEntries(pathEntries: string[]): string {
+  const separator = pathEntries.some(isWindowsPathEntry) ? ";" : ":";
+  return pathEntries.join(separator);
+}
+
+function isWindowsPathEntry(path: string): boolean {
+  return /^[A-Za-z]:[\\/]/.test(path) || path.startsWith("\\\\");
 }
 
 function defaultPathEntries(): string[] {
@@ -565,22 +581,32 @@ function defaultPathEntries(): string[] {
 
 function expandHomePath(path: string): string {
   if (!path) return "";
+  if (path !== "~" && !path.startsWith("~/")) return path;
   const home = getHomeDir();
   if (!home) return path;
   if (path === "~") return home;
-  if (path.startsWith("~/")) return PathUtils.join(home, path.slice(2));
+  if (path.startsWith("~/")) {
+    if (typeof PathUtils !== "undefined")
+      return PathUtils.join(home, path.slice(2));
+    return `${home.replace(/[\\/]$/, "")}/${path.slice(2)}`;
+  }
   return path;
 }
 
 function getHomeDir(): string {
-  const pathUtils = PathUtils as unknown as { homeDir?: unknown };
-  if (typeof pathUtils.homeDir === "string") {
-    return pathUtils.homeDir;
+  if (typeof PathUtils !== "undefined") {
+    const pathUtils = PathUtils as unknown as { homeDir?: unknown };
+    if (typeof pathUtils.homeDir === "string") {
+      return pathUtils.homeDir;
+    }
   }
-  const envHome = Services.env.get("HOME") || Services.env.get("USERPROFILE");
-  if (envHome) return envHome;
+  if (typeof Services !== "undefined") {
+    const envHome = Services.env.get("HOME") || Services.env.get("USERPROFILE");
+    if (envHome) return envHome;
+  }
 
   try {
+    if (typeof Zotero === "undefined") return "";
     const zotero = Zotero as unknown as { Profile?: { dir?: unknown } };
     const profileDir = String(zotero.Profile?.dir || "");
     return deriveHomeFromProfileDir(profileDir);

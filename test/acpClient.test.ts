@@ -3,7 +3,9 @@ import {
   closeAllClients,
   deriveHomeFromProfileDir,
   getClient,
+  joinPathEntries,
   profileConnectionSignature,
+  splitPathEntries,
 } from "../src/modules/acpClient";
 import type { AgentProfile } from "../src/modules/acpChatTypes";
 
@@ -55,6 +57,28 @@ describe("ACP client pool", function () {
       "C:/Users/ouyang",
     );
     assert.equal(deriveHomeFromProfileDir("/tmp/zotero-profile"), "");
+  });
+
+  it("splits and joins search paths for POSIX and Windows", function () {
+    assert.deepEqual(splitPathEntries("/usr/local/bin:/usr/bin"), [
+      "/usr/local/bin",
+      "/usr/bin",
+    ]);
+    assert.deepEqual(
+      splitPathEntries("C:\\Program Files\\nodejs;C:\\Windows\\System32"),
+      ["C:\\Program Files\\nodejs", "C:\\Windows\\System32"],
+    );
+    assert.deepEqual(splitPathEntries("C:\\Program Files\\nodejs"), [
+      "C:\\Program Files\\nodejs",
+    ]);
+    assert.equal(
+      joinPathEntries(["C:\\Program Files\\nodejs", "C:\\Windows\\System32"]),
+      "C:\\Program Files\\nodejs;C:\\Windows\\System32",
+    );
+    assert.equal(
+      joinPathEntries(["/usr/local/bin", "/usr/bin"]),
+      "/usr/local/bin:/usr/bin",
+    );
   });
 });
 
