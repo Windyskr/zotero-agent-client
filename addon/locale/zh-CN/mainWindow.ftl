@@ -49,6 +49,7 @@ acpchat-message-status-error = 错误
 acpchat-message-status-cancelled = 已取消
 acpchat-message-status-done = 完成
 acpchat-message-streaming-placeholder = 正在阅读和思考这篇论文...
+acpchat-message-interrupted = 上次响应尚未完成就已中断。
 acpchat-topic-list-label = 历史话题
 acpchat-topic-untitled = 未命名对话
 acpchat-topic-empty = 暂无对话

@@ -27,6 +27,7 @@ export type FluentMessageId =
   | 'acpchat-library-attachment-picker-message'
   | 'acpchat-library-attachment-picker-title'
   | 'acpchat-library-file-missing'
+  | 'acpchat-message-interrupted'
   | 'acpchat-message-status-cancelled'
   | 'acpchat-message-status-done'
   | 'acpchat-message-status-error'

@@ -45,7 +45,7 @@ export async function loadLocalAgentState(
     ? selectPreferredRecord(records, preferredTopicKey)
     : makeInitialRecord(pdf, agentId, l10n);
   return {
-    record,
+    record: settleInterruptedStreamingMessages(record, l10n),
     topics: recordsToTopicSummaries(records),
     configOptions: [],
   };
@@ -67,4 +67,26 @@ async function listRecordsForPdfAgent(
   agentId: string,
 ): Promise<SessionRecord[]> {
   return recordsForPdfAgent(await store.list(), pdf, agentId);
+}
+
+function settleInterruptedStreamingMessages(
+  record: SessionRecord,
+  l10n: Localize,
+): SessionRecord {
+  let changed = false;
+  const messages = record.messages.map((message) => {
+    if (message.status !== "streaming") return message;
+    changed = true;
+    return {
+      ...message,
+      text:
+        message.text ||
+        l10n(
+          "acpchat-message-interrupted",
+          "Interrupted before a response was completed.",
+        ),
+      status: "cancelled" as const,
+    };
+  });
+  return changed ? { ...record, messages } : record;
 }

@@ -47,6 +47,69 @@ describe("ACP session state", function () {
     assert.deepEqual(state.topics, []);
   });
 
+  it("marks interrupted streaming messages as cancelled when loading history", async function () {
+    const record = makeRecord(
+      "3:5:7:interrupted",
+      "codex",
+      "2026-01-01T00:00:00.000Z",
+    );
+    record.messages.push({
+      id: "message-2",
+      role: "assistant",
+      text: "",
+      status: "streaming",
+      createdAt: "2026-01-01T00:00:01.000Z",
+    });
+
+    const state = await loadLocalAgentState(
+      makeStore([record]),
+      pdf,
+      agentProfiles,
+      "codex",
+      l10n,
+    );
+
+    assert.deepInclude(state.record.messages, {
+      id: "message-2",
+      role: "assistant",
+      text: "Interrupted before a response was completed.",
+      status: "cancelled",
+      createdAt: "2026-01-01T00:00:01.000Z",
+    });
+    assert.equal(record.messages[1].status, "streaming");
+  });
+
+  it("preserves partial interrupted response text when loading history", async function () {
+    const record = makeRecord(
+      "3:5:7:partial",
+      "codex",
+      "2026-01-01T00:00:00.000Z",
+    );
+    record.messages.push({
+      id: "message-2",
+      role: "assistant",
+      text: "Partial answer",
+      status: "streaming",
+      createdAt: "2026-01-01T00:00:01.000Z",
+    });
+
+    const state = await loadLocalAgentState(
+      makeStore([record]),
+      pdf,
+      agentProfiles,
+      "codex",
+      l10n,
+    );
+
+    assert.deepInclude(state.record.messages, {
+      id: "message-2",
+      role: "assistant",
+      text: "Partial answer",
+      status: "cancelled",
+      createdAt: "2026-01-01T00:00:01.000Z",
+    });
+  });
+
   it("rejects invalid agents with localized messages", async function () {
     try {
       await loadLocalAgentState(
