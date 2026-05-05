@@ -82,7 +82,7 @@ function upsertToolCallMessage(
   updatedAt: string,
 ): SessionRecord {
   const toolCallId =
-    typeof update.toolCallId === "string" ? update.toolCallId : "";
+    typeof update.toolCallId === "string" ? update.toolCallId.trim() : "";
   if (!toolCallId) return record;
 
   const messageId = `tool-${toolCallId}`;

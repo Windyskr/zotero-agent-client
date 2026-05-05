@@ -76,6 +76,38 @@ describe("ACP update reducer", function () {
     assert.equal(second.updatedAt, "2026-01-01T00:00:02.000Z");
   });
 
+  it("trims tool call IDs before upserting messages", function () {
+    const first = applyAcpUpdate(
+      makeRecord(),
+      "assistant-1",
+      {
+        sessionUpdate: "tool_call",
+        toolCallId: " tool-1 ",
+        title: "Search notes",
+        status: "in_progress",
+      },
+      "2026-01-01T00:00:01.000Z",
+    );
+    const second = applyAcpUpdate(
+      first,
+      "assistant-1",
+      {
+        sessionUpdate: "tool_call_update",
+        toolCallId: "tool-1",
+        title: "Search notes",
+        status: "completed",
+      },
+      "2026-01-01T00:00:02.000Z",
+    );
+
+    assert.deepEqual(
+      second.messages
+        .filter((message) => message.role === "tool")
+        .map((message) => message.id),
+      ["tool-tool-1"],
+    );
+  });
+
   it("marks messages with fallback text only when empty", function () {
     const record = {
       ...makeRecord(),
