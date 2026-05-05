@@ -1,5 +1,6 @@
 import { assert } from "chai";
 import {
+  AcpClient,
   closeAllClients,
   deriveHomeFromProfileDir,
   executableNameCandidates,
@@ -108,6 +109,29 @@ describe("ACP client pool", function () {
       "npx.exe",
       "npx.bat",
     ]);
+  });
+
+  it("keeps notifying update listeners after one listener fails", function () {
+    const client = new AcpClient(makeProfile());
+    const updates: unknown[] = [];
+    client.onUpdate(() => {
+      throw new Error("listener failed");
+    });
+    client.onUpdate((update) => {
+      updates.push(update);
+    });
+
+    (
+      client as unknown as {
+        handleMessage(message: unknown): void;
+      }
+    ).handleMessage({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: { ok: true },
+    });
+
+    assert.deepEqual(updates, [{ ok: true }]);
   });
 });
 

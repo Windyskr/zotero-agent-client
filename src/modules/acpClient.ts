@@ -457,7 +457,7 @@ export class AcpClient {
       return;
     }
     if (message.method === "session/update") {
-      for (const listener of this.updateListeners) listener(message.params);
+      this.notifyUpdateListeners(message.params);
       return;
     }
     if (typeof message.id === "number") {
@@ -475,6 +475,29 @@ export class AcpClient {
       pending.reject(error);
     }
     this.pending.clear();
+  }
+
+  private notifyUpdateListeners(update: unknown): void {
+    for (const listener of Array.from(this.updateListeners)) {
+      try {
+        listener(update);
+      } catch (error) {
+        logUpdateListenerError(error);
+      }
+    }
+  }
+}
+
+function logUpdateListenerError(error: unknown): void {
+  try {
+    if (
+      typeof Zotero !== "undefined" &&
+      typeof Zotero.logError === "function"
+    ) {
+      Zotero.logError(error as Error);
+    }
+  } catch {
+    // Listener isolation should work in tests and during Zotero shutdown.
   }
 }
 
