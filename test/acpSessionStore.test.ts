@@ -1,7 +1,25 @@
 import { assert } from "chai";
-import { normalizeStoreDocument } from "../src/modules/acpSessionStore";
+import {
+  normalizeSessionStorePath,
+  normalizeStoreDocument,
+} from "../src/modules/acpSessionStore";
 
 describe("ACP session store normalization", function () {
+  it("normalizes configured store paths", function () {
+    assert.equal(
+      normalizeSessionStorePath(' "C:\\Users\\ouyang\\sessions.json" '),
+      "C:\\Users\\ouyang\\sessions.json",
+    );
+    assert.equal(
+      normalizeSessionStorePath("'/home/ouyang/sessions.json'"),
+      "/home/ouyang/sessions.json",
+    );
+    assert.equal(
+      normalizeSessionStorePath("/home/ouyang/sessions.json"),
+      "/home/ouyang/sessions.json",
+    );
+  });
+
   it("returns an empty store for malformed documents", function () {
     assert.deepEqual(normalizeStoreDocument(null), { version: 1, records: [] });
     assert.deepEqual(normalizeStoreDocument({ records: "bad" }), {

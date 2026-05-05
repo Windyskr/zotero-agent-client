@@ -34,7 +34,7 @@ export class FileSessionStore {
 
   private async path(): Promise<string> {
     return (
-      this.configuredPath.trim() ||
+      normalizeSessionStorePath(this.configuredPath) ||
       PathUtils.join(getZoteroProfileDir(), "agentclient", "sessions.json")
     );
   }
@@ -132,6 +132,16 @@ export function normalizeStoreDocument(store: unknown): StoreDocument {
     });
   }
   return { version: 1, records: dedupeRecordsByKey(normalized) };
+}
+
+export function normalizeSessionStorePath(path: string): string {
+  const trimmed = path.trim();
+  if (trimmed.length < 2) return trimmed;
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  return (first === '"' && last === '"') || (first === "'" && last === "'")
+    ? trimmed.slice(1, -1).trim()
+    : trimmed;
 }
 
 function dedupeRecordsByKey(records: SessionRecord[]): SessionRecord[] {

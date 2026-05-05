@@ -1,4 +1,5 @@
 import { config } from "../../package.json";
+import { normalizeSessionStorePath } from "./acpSessionStore";
 import { getZoteroProfileDir } from "./acpZoteroRuntime";
 
 export async function registerPrefsScripts(_window: Window) {
@@ -70,9 +71,13 @@ function getCacheTargets(): Array<{ path: string; recursive: boolean }> {
     `${config.prefsPrefix}.sessionStorePath`,
     true,
   );
-  if (typeof configuredPath === "string" && configuredPath.trim()) {
-    targets.set(configuredPath.trim(), {
-      path: configuredPath.trim(),
+  const normalizedConfiguredPath =
+    typeof configuredPath === "string"
+      ? normalizeSessionStorePath(configuredPath)
+      : "";
+  if (normalizedConfiguredPath) {
+    targets.set(normalizedConfiguredPath, {
+      path: normalizedConfiguredPath,
       recursive: false,
     });
   }
