@@ -121,6 +121,8 @@ describe("ACP chat utilities", function () {
     assert.equal(simpleHash("paper"), simpleHash("paper"));
     assert.match(simpleHash("paper"), /^[0-9a-f]{8}$/);
     assert.equal(toMessage(new Error("failed")), "failed");
+    assert.equal(toMessage({ message: "failed object" }), "failed object");
+    assert.equal(toMessage({ code: "bad_request" }), '{"code":"bad_request"}');
     assert.equal(toMessage("plain"), "plain");
   });
 });

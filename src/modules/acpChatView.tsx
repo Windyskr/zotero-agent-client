@@ -7,6 +7,7 @@ import type {
   StatusKind,
   TopicSummary,
 } from "./acpChatTypes";
+import { toMessage } from "./acpChatUtils";
 import {
   Composer,
   LoadingCard,
@@ -189,7 +190,7 @@ export function AcpChatPanel({
         if (cancelled) return;
         setStatus({
           kind: "error",
-          text: String(error),
+          text: toMessage(error),
         });
       });
 
@@ -217,7 +218,7 @@ export function AcpChatPanel({
     } catch (error) {
       setStatus({
         kind: "error",
-        text: String(error),
+        text: toMessage(error),
       });
     } finally {
       setIsHydrating(false);
@@ -242,7 +243,7 @@ export function AcpChatPanel({
     } catch (error) {
       setStatus({
         kind: "error",
-        text: String(error),
+        text: toMessage(error),
       });
     } finally {
       setIsHydrating(false);
@@ -267,7 +268,7 @@ export function AcpChatPanel({
     } catch (error) {
       setStatus({
         kind: "error",
-        text: String(error),
+        text: toMessage(error),
       });
     } finally {
       setIsRunning(false);
@@ -283,7 +284,7 @@ export function AcpChatPanel({
         setAttachment(selected);
       }
     } catch (error) {
-      setStatus({ kind: "error", text: String(error) });
+      setStatus({ kind: "error", text: toMessage(error) });
     }
   };
 
@@ -324,7 +325,7 @@ export function AcpChatPanel({
     } catch (error) {
       setStatus({
         kind: "error",
-        text: String(error),
+        text: toMessage(error),
       });
     } finally {
       setIsRunning(false);
@@ -353,7 +354,7 @@ export function AcpChatPanel({
       });
       setConfigOptions(nextOptions);
     } catch (error) {
-      setStatus({ kind: "error", text: String(error) });
+      setStatus({ kind: "error", text: toMessage(error) });
     }
   };
 

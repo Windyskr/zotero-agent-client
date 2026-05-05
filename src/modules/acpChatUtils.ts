@@ -219,5 +219,17 @@ export function makeMessage(
 }
 
 export function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) return error.message;
+  if (isRecord(error) && typeof error.message === "string") {
+    return error.message;
+  }
+  if (isRecord(error)) {
+    try {
+      const json = JSON.stringify(error);
+      if (json && json !== "{}") return json;
+    } catch {
+      // Fall through to the generic string conversion.
+    }
+  }
+  return String(error);
 }
