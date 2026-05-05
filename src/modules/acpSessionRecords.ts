@@ -80,7 +80,7 @@ export function makeInitialRecord(
     agentId,
     pdfItemID: pdf.itemID,
     pdfPathHash: simpleHash(pdf.filePath),
-    messages: [makeAttachedPdfMessage(pdf, l10n)],
+    messages: [makeAttachedPdfMessage(pdf, l10n, now)],
     createdAt: now,
     updatedAt: now,
   };
@@ -94,12 +94,19 @@ function makeTopicId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function makeAttachedPdfMessage(pdf: PdfContext, l10n: Localize): ChatMessage {
-  return makeMessage(
-    "system",
-    l10n("acpchat-system-attached-pdf", "Attached PDF: {fileName}", {
-      fileName: pdf.fileName,
-    }),
-    "done",
-  );
+function makeAttachedPdfMessage(
+  pdf: PdfContext,
+  l10n: Localize,
+  createdAt: string,
+): ChatMessage {
+  return {
+    ...makeMessage(
+      "system",
+      l10n("acpchat-system-attached-pdf", "Attached PDF: {fileName}", {
+        fileName: pdf.fileName,
+      }),
+      "done",
+    ),
+    createdAt,
+  };
 }

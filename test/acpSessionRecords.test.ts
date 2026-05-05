@@ -29,6 +29,7 @@ describe("ACP session records", function () {
       role: "system",
       text: "Attached PDF: paper.pdf",
       status: "done",
+      createdAt: "2026-01-01T00:00:00.000Z",
     });
   });
 
