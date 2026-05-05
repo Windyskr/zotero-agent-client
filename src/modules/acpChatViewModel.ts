@@ -63,6 +63,11 @@ export function formatElapsedDuration(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
   if (!minutes) return `${seconds}s`;
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }
   return `${minutes}m ${remainder}s`;
 }
 

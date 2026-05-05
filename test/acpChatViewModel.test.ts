@@ -69,6 +69,8 @@ describe("ACP chat view model", function () {
   it("formats elapsed durations", function () {
     assert.equal(formatElapsedDuration(9), "9s");
     assert.equal(formatElapsedDuration(65), "1m 5s");
+    assert.equal(formatElapsedDuration(3600), "1h");
+    assert.equal(formatElapsedDuration(3905), "1h 5m");
   });
 
   it("identifies meta roles and attached PDF messages", function () {
