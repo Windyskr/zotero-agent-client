@@ -46,12 +46,13 @@ export function getTurnElapsedSeconds(
     turn.userMessage?.createdAt ??
       turn.responseMessages[0]?.createdAt ??
       new Date(nowMs).toISOString(),
+    nowMs,
   );
   const end = isActive
     ? nowMs
     : Math.max(
         ...turn.responseMessages.map((message) =>
-          toTimestamp(message.createdAt),
+          toTimestamp(message.createdAt, start),
         ),
         start,
       );
@@ -74,7 +75,7 @@ export function isAttachedPdfSystemMessage(message: ChatMessage): boolean {
   return /(?:Attached PDF|已附加 PDF)[:：]/.test(message.text);
 }
 
-function toTimestamp(iso: string): number {
+function toTimestamp(iso: string, fallbackMs: number): number {
   const value = new Date(iso).getTime();
-  return Number.isNaN(value) ? Date.now() : value;
+  return Number.isNaN(value) ? fallbackMs : value;
 }

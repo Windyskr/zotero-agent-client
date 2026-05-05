@@ -55,6 +55,17 @@ describe("ACP chat view model", function () {
     assert.equal(getTurnElapsedSeconds(turn, Date.now(), false), 5);
   });
 
+  it("uses deterministic duration fallbacks for invalid timestamps", function () {
+    const [turn] = groupMessagesIntoTurns([
+      message("user-1", "user", "not-a-date"),
+      message("assistant-1", "assistant", "still-not-a-date"),
+    ]);
+    const nowMs = new Date("2026-01-01T00:00:08.000Z").getTime();
+
+    assert.equal(getTurnElapsedSeconds(turn, nowMs, true), 1);
+    assert.equal(getTurnElapsedSeconds(turn, nowMs, false), 1);
+  });
+
   it("formats elapsed durations", function () {
     assert.equal(formatElapsedDuration(9), "9s");
     assert.equal(formatElapsedDuration(65), "1m 5s");
