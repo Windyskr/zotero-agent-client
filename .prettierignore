@@ -1,4 +1,5 @@
 .vscode
+addon/locale
 build
 logs
 node_modules

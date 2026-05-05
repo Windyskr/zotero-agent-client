@@ -3,6 +3,8 @@ import { FluentMessageId } from "../../typings/i10n";
 
 export { initLocale, getString, getLocaleID };
 
+type LocaleArgs = Record<string, string | number | null>;
+
 /**
  * Initialize locale data
  */
@@ -44,9 +46,14 @@ function getString(localString: FluentMessageId): string;
 function getString(localString: FluentMessageId, branch: string): string;
 function getString(
   localeString: FluentMessageId,
-  options: { branch?: string | undefined; args?: Record<string, unknown> },
+  options: { branch?: string | undefined; args?: LocaleArgs },
 ): string;
-function getString(...inputs: any[]) {
+function getString(
+  ...inputs:
+    | [FluentMessageId]
+    | [FluentMessageId, string]
+    | [FluentMessageId, { branch?: string | undefined; args?: LocaleArgs }]
+) {
   if (inputs.length === 1) {
     return _getString(inputs[0]);
   } else if (inputs.length === 2) {
@@ -70,7 +77,7 @@ interface Pattern {
 
 function _getString(
   localeString: FluentMessageId,
-  options: { branch?: string | undefined; args?: Record<string, unknown> } = {},
+  options: { branch?: string | undefined; args?: LocaleArgs } = {},
 ): string {
   const localStringWithPrefix = `${config.addonRef}-${localeString}`;
   const { branch, args } = options;

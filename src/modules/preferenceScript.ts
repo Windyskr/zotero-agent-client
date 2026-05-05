@@ -1,4 +1,5 @@
 import { config } from "../../package.json";
+import { getZoteroProfileDir } from "./acpZoteroRuntime";
 
 export async function registerPrefsScripts(_window: Window) {
   ztoolkit.log("Zotero Agent Client preferences loaded", _window);
@@ -57,7 +58,7 @@ async function clearSessionCache(): Promise<boolean> {
     await IOUtils.remove(target.path, {
       ignoreAbsent: true,
       recursive: target.recursive,
-    } as any);
+    });
     removed = true;
   }
   return removed;
@@ -76,7 +77,7 @@ function getCacheTargets(): Array<{ path: string; recursive: boolean }> {
     });
   }
   const defaultCacheDir = PathUtils.join(
-    (Zotero as any).Profile.dir,
+    getZoteroProfileDir(),
     config.addonRef,
   );
   const defaultStorePath = PathUtils.join(defaultCacheDir, "sessions.json");
@@ -106,7 +107,7 @@ async function getPrefPaneString(
   id: string,
   fallback: string,
 ): Promise<string> {
-  const l10n = (doc as any).l10n;
+  const l10n = doc.l10n;
   if (typeof l10n?.formatValue === "function") {
     return (await l10n.formatValue(id)) || fallback;
   }
