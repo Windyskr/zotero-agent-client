@@ -19,7 +19,7 @@ describe("ACP chat view formatting", function () {
 
   it("picks config options by category before id", function () {
     const modelById = option("model", undefined);
-    const modelByCategory = option("custom-model", "model");
+    const modelByCategory = option("custom-model", "Model");
 
     assert.equal(
       pickConfigOption([modelById, modelByCategory], "model"),

@@ -80,15 +80,18 @@ export function pickConfigOption(
   options: SessionConfigOption[],
   targetCategory: string,
 ): SessionConfigOption | null {
+  const normalizedTarget = targetCategory.toLowerCase();
   const byCategory = options.find(
-    (option) => option.category === targetCategory && option.type === "select",
+    (option) =>
+      option.type === "select" &&
+      option.category?.toLowerCase() === normalizedTarget,
   );
   if (byCategory) return byCategory;
   return (
     options.find(
       (option) =>
         option.type === "select" &&
-        option.id.toLowerCase() === targetCategory.toLowerCase(),
+        option.id.toLowerCase() === normalizedTarget,
     ) ?? null
   );
 }
