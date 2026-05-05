@@ -12,7 +12,6 @@ export interface Settings {
   agentProfiles: AgentProfile[];
   defaultAgent: string;
   sessionStorePath: string;
-  defaultTemplate: string;
 }
 
 export interface SessionConfigOptionValue {

@@ -44,7 +44,6 @@ import {
   PDF_CONTEXT_TIMEOUT_MS,
   makeMessage,
   normalizeConfigOptions,
-  renderTemplate,
   toMessage,
   withTimeout,
 } from "./acpChatUtils";
@@ -380,14 +379,9 @@ async function renderPanelAsync(
         text: getMainWindowString("acpchat-status-running", "Running"),
       });
 
-      const promptText = renderTemplate(settings.defaultTemplate, {
-        title: pdf.title,
-        year: pdf.year,
-        prompt: text,
-      });
       const response = await client.sendPrompt(
         activeSessionId,
-        makePromptContent(promptText, pdf, includePdf, attachment),
+        makePromptContent(text, pdf, includePdf, attachment),
       );
       cancelStreamingPersist();
       const showStopReason = shouldShowStopReason(response.stopReason);

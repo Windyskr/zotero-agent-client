@@ -1,7 +1,6 @@
 pref-title = Zotero Agent Client
 pref-default-agent = 默认 Agent ID
 pref-session-store = 会话存储路径
-pref-template = 发送模板
 pref-agent-profiles = Agent 配置 JSON
 pref-clear-cache = 本地缓存
 pref-clear-cache-button = 清理 Agent Client 缓存

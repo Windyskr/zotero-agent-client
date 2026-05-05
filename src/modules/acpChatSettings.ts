@@ -45,7 +45,6 @@ export function getSettings(): Settings {
     agentProfiles,
     defaultAgent,
     sessionStorePath: getString("sessionStorePath", ""),
-    defaultTemplate: getString("defaultTemplate", "{{prompt}}"),
   };
 }
 

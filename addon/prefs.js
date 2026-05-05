@@ -4,4 +4,3 @@ pref(
 );
 pref("defaultAgent", "codex");
 pref("sessionStorePath", "");
-pref("defaultTemplate", "{{prompt}}");

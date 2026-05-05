@@ -10,7 +10,6 @@ declare namespace _ZoteroTypes {
       "agentProfiles": string;
       "defaultAgent": string;
       "sessionStorePath": string;
-      "defaultTemplate": string;
     };
   }
 }

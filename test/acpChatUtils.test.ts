@@ -5,23 +5,11 @@ import {
   inferMimeType,
   normalizeConfigOptions,
   pathToFileUri,
-  renderTemplate,
   simpleHash,
   toMessage,
 } from "../src/modules/acpChatUtils";
 
 describe("ACP chat utilities", function () {
-  it("renders supported prompt template variables", function () {
-    assert.equal(
-      renderTemplate("{{title}} {{ year }} {{prompt}} {{unknown}}", {
-        title: "Paper",
-        year: "2026",
-        prompt: "Summarize",
-      }),
-      "Paper 2026 Summarize {{unknown}}",
-    );
-  });
-
   it("converts local paths to encoded file URIs", function () {
     assert.equal(
       pathToFileUri("/tmp/My Paper.pdf"),

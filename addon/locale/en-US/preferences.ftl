@@ -1,7 +1,6 @@
 pref-title = Zotero Agent Client
 pref-default-agent = Default agent ID
 pref-session-store = Session store path
-pref-template = Send template
 pref-agent-profiles = Agent profiles JSON
 pref-clear-cache = Local cache
 pref-clear-cache-button = Clear Agent Client cache

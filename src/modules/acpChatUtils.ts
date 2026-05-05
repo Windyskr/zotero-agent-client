@@ -44,16 +44,6 @@ export function withTimeout<T>(
   });
 }
 
-export function renderTemplate(
-  template: string,
-  vars: { title: string; year: string; prompt: string },
-): string {
-  return template.replace(
-    /\{\{\s*(title|year|prompt)\s*\}\}/g,
-    (_match, key: "title" | "year" | "prompt") => vars[key] ?? "",
-  );
-}
-
 export function pathToFileUri(path: string): string {
   return `file://${path
     .replace(/\\/g, "/")

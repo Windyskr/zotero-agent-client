@@ -69,6 +69,5 @@ export type FluentMessageId =
   | 'pref-default-agent'
   | 'pref-help'
   | 'pref-session-store'
-  | 'pref-template'
   | 'pref-title'
   | 'prefs-title';
