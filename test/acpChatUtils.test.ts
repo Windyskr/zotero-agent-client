@@ -37,6 +37,16 @@ describe("ACP chat utilities", function () {
   it("infers known mime types from file names", function () {
     assert.equal(inferMimeType("/tmp/paper.PDF"), "application/pdf");
     assert.equal(inferMimeType("/tmp/data.csv"), "text/csv");
+    assert.equal(
+      inferMimeType("/tmp/notes.docx"),
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+    assert.equal(inferMimeType("/tmp/refs.bib"), "text/x-bibtex");
+    assert.equal(
+      inferMimeType("/tmp/export.ris"),
+      "application/x-research-info-systems",
+    );
+    assert.equal(inferMimeType("/tmp/page.html"), "text/html");
     assert.isUndefined(inferMimeType("/tmp/archive.zip"));
   });
 
