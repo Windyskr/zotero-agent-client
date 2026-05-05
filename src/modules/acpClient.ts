@@ -486,14 +486,22 @@ async function resolveExecutableCommand(
   if (!normalizedCommand) {
     throw new Error("ACP command is empty");
   }
-  if (normalizedCommand.includes("/")) {
+  if (isPathLikeCommand(normalizedCommand)) {
     return normalizedCommand;
   }
 
-  for (const entry of collectSearchPathEntries(env)) {
-    const candidate = PathUtils.join(entry, normalizedCommand);
-    if (await IOUtils.exists(candidate)) {
-      return candidate;
+  const pathEntries = collectSearchPathEntries(env);
+  const executableNames = executableNameCandidates(
+    normalizedCommand,
+    getPathExt(env),
+    pathEntries.some(isWindowsPathEntry),
+  );
+  for (const entry of pathEntries) {
+    for (const executableName of executableNames) {
+      const candidate = PathUtils.join(entry, executableName);
+      if (await IOUtils.exists(candidate)) {
+        return candidate;
+      }
     }
   }
 
@@ -557,6 +565,52 @@ function isWindowsPathEntry(path: string): boolean {
   return /^[A-Za-z]:[\\/]/.test(path) || path.startsWith("\\\\");
 }
 
+export function isPathLikeCommand(command: string): boolean {
+  return (
+    command.includes("/") ||
+    command.includes("\\") ||
+    /^[A-Za-z]:/.test(command)
+  );
+}
+
+export function executableNameCandidates(
+  command: string,
+  pathExt = "",
+  includeWindowsFallbacks = false,
+): string[] {
+  const names = [command];
+  if (hasExecutableExtension(command)) return names;
+  const extensions = splitPathExtensions(pathExt);
+  if (!extensions.length && includeWindowsFallbacks) {
+    extensions.push(".cmd", ".exe", ".bat");
+  }
+  for (const extension of extensions) {
+    names.push(`${command}${extension}`);
+  }
+  return Array.from(new Set(names));
+}
+
+function hasExecutableExtension(command: string): boolean {
+  return /\.[A-Za-z0-9]+$/.test(command.split(/[\\/]/).pop() ?? command);
+}
+
+function splitPathExtensions(pathExt: string): string[] {
+  return pathExt
+    .split(";")
+    .map((extension) => extension.trim())
+    .filter((extension) => !!extension)
+    .map((extension) =>
+      extension.startsWith(".") ? extension : `.${extension}`,
+    );
+}
+
+function getPathExt(env: Record<string, string>): string {
+  const configured = env.PATHEXT || env.PathExt || "";
+  if (configured) return configured;
+  if (typeof Services === "undefined") return "";
+  return Services.env.get("PATHEXT") || Services.env.get("PathExt") || "";
+}
+
 function defaultPathEntries(): string[] {
   const home = getHomeDir();
   const dynamic = [
@@ -581,11 +635,12 @@ function defaultPathEntries(): string[] {
 
 function expandHomePath(path: string): string {
   if (!path) return "";
-  if (path !== "~" && !path.startsWith("~/")) return path;
+  if (path !== "~" && !path.startsWith("~/") && !path.startsWith("~\\"))
+    return path;
   const home = getHomeDir();
   if (!home) return path;
   if (path === "~") return home;
-  if (path.startsWith("~/")) {
+  if (path.startsWith("~/") || path.startsWith("~\\")) {
     if (typeof PathUtils !== "undefined")
       return PathUtils.join(home, path.slice(2));
     return `${home.replace(/[\\/]$/, "")}/${path.slice(2)}`;

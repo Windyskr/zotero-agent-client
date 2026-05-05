@@ -87,7 +87,9 @@ export function inferMimeType(path: string): string | undefined {
 export function dirname(path: string): string {
   const normalized = path.replace(/\\/g, "/");
   const index = normalized.lastIndexOf("/");
-  return index > 0 ? normalized.slice(0, index) : "/";
+  if (index <= 0) return "/";
+  const parent = normalized.slice(0, index);
+  return /^[A-Za-z]:$/.test(parent) ? `${parent}/` : parent;
 }
 
 export async function statFile(path: string): Promise<{ size: number } | null> {

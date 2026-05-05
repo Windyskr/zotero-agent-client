@@ -30,6 +30,8 @@ describe("ACP chat utilities", function () {
     assert.equal(basename("C:\\tmp\\paper.pdf"), "paper.pdf");
     assert.equal(dirname("/tmp/paper.pdf"), "/tmp");
     assert.equal(dirname("C:\\tmp\\paper.pdf"), "C:/tmp");
+    assert.equal(dirname("C:\\paper.pdf"), "C:/");
+    assert.equal(dirname("\\\\server\\share\\paper.pdf"), "//server/share");
   });
 
   it("infers known mime types from file names", function () {

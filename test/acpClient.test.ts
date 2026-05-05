@@ -2,7 +2,9 @@ import { assert } from "chai";
 import {
   closeAllClients,
   deriveHomeFromProfileDir,
+  executableNameCandidates,
   getClient,
+  isPathLikeCommand,
   joinPathEntries,
   profileConnectionSignature,
   splitPathEntries,
@@ -79,6 +81,33 @@ describe("ACP client pool", function () {
       joinPathEntries(["/usr/local/bin", "/usr/bin"]),
       "/usr/local/bin:/usr/bin",
     );
+  });
+
+  it("detects path-like commands across platforms", function () {
+    assert.isFalse(isPathLikeCommand("npx"));
+    assert.isTrue(isPathLikeCommand("/usr/local/bin/npx"));
+    assert.isTrue(isPathLikeCommand("C:\\Program Files\\nodejs\\npx.cmd"));
+    assert.isTrue(isPathLikeCommand("C:/Program Files/nodejs/npx.cmd"));
+    assert.isTrue(isPathLikeCommand("\\\\server\\share\\npx.cmd"));
+  });
+
+  it("adds Windows executable suffix candidates when needed", function () {
+    assert.deepEqual(executableNameCandidates("npx", ".COM;.EXE;.BAT;.CMD"), [
+      "npx",
+      "npx.COM",
+      "npx.EXE",
+      "npx.BAT",
+      "npx.CMD",
+    ]);
+    assert.deepEqual(executableNameCandidates("npx.cmd", ".EXE;.CMD"), [
+      "npx.cmd",
+    ]);
+    assert.deepEqual(executableNameCandidates("npx", "", true), [
+      "npx",
+      "npx.cmd",
+      "npx.exe",
+      "npx.bat",
+    ]);
   });
 });
 
