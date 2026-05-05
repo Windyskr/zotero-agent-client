@@ -2,6 +2,7 @@ import { assert } from "chai";
 import {
   normalizeAgentProfiles,
   normalizeNpxArgs,
+  selectDefaultAgent,
 } from "../src/modules/acpChatSettings";
 
 describe("ACP chat settings", function () {
@@ -84,6 +85,29 @@ describe("ACP chat settings", function () {
         env: {},
       },
     ]);
+  });
+
+  it("trims and validates configured default agent IDs", function () {
+    const profiles = [
+      {
+        id: "codex",
+        name: "Codex",
+        command: "npx",
+        args: ["-y", "@scope/agent"],
+        env: {},
+      },
+      {
+        id: "claude",
+        name: "Claude",
+        command: "npx",
+        args: ["-y", "@scope/agent"],
+        env: {},
+      },
+    ];
+
+    assert.equal(selectDefaultAgent(profiles, " claude "), "claude");
+    assert.equal(selectDefaultAgent(profiles, "missing"), "codex");
+    assert.equal(selectDefaultAgent([], " missing "), "missing");
   });
 
   it("deduplicates profiles by normalized id", function () {

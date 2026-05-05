@@ -35,17 +35,25 @@ export function getSettings(): Settings {
   const agentProfiles = configuredProfiles.length
     ? configuredProfiles
     : DEFAULT_AGENT_PROFILES;
-  const configuredDefaultAgent = getString("defaultAgent", "codex");
-  const defaultAgent = agentProfiles.some(
-    (profile) => profile.id === configuredDefaultAgent,
-  )
-    ? configuredDefaultAgent
-    : (agentProfiles[0]?.id ?? configuredDefaultAgent);
+  const defaultAgent = selectDefaultAgent(
+    agentProfiles,
+    getString("defaultAgent", "codex"),
+  );
   return {
     agentProfiles,
     defaultAgent,
     sessionStorePath: getString("sessionStorePath", ""),
   };
+}
+
+export function selectDefaultAgent(
+  agentProfiles: AgentProfile[],
+  configuredDefaultAgent: string,
+): string {
+  const normalizedDefaultAgent = configuredDefaultAgent.trim();
+  return agentProfiles.some((profile) => profile.id === normalizedDefaultAgent)
+    ? normalizedDefaultAgent
+    : (agentProfiles[0]?.id ?? normalizedDefaultAgent);
 }
 
 function getString(name: string, fallback: string): string {
