@@ -549,7 +549,7 @@ function buildProcessEnvironment(
   env: Record<string, string>,
 ): Record<string, string> {
   const next: Record<string, string> = { ...env };
-  if (!next.PATH && !next.Path) {
+  if (!getEnvironmentValue(next, "PATH", "Path")) {
     const mergedPath = joinPathEntries(collectSearchPathEntries(env));
     if (mergedPath) next.PATH = mergedPath;
   }
@@ -557,11 +557,13 @@ function buildProcessEnvironment(
 }
 
 function collectSearchPathEntries(env: Record<string, string>): string[] {
-  const pathEntries = splitPathEntries(env.PATH || env.Path || "");
-  const processPath = splitPathEntries(
-    Services.env.get("PATH") || Services.env.get("Path"),
+  const pathEntries = splitPathEntries(
+    getEnvironmentValue(env, "PATH", "Path"),
   );
-  const defaults = defaultPathEntries();
+  const processPath = splitPathEntries(
+    getServiceEnvironmentValue("PATH", "Path"),
+  );
+  const defaults = defaultPathEntries(env);
   return Array.from(new Set([...pathEntries, ...processPath, ...defaults]));
 }
 
@@ -628,20 +630,51 @@ function splitPathExtensions(pathExt: string): string[] {
 }
 
 function getPathExt(env: Record<string, string>): string {
-  const configured = env.PATHEXT || env.PathExt || "";
+  const configured = getEnvironmentValue(env, "PATHEXT", "PathExt");
   if (configured) return configured;
-  if (typeof Services === "undefined") return "";
-  return Services.env.get("PATHEXT") || Services.env.get("PathExt") || "";
+  return getServiceEnvironmentValue("PATHEXT", "PathExt");
 }
 
-function defaultPathEntries(): string[] {
-  const home = getHomeDir();
+function defaultPathEntries(env: Record<string, string> = {}): string[] {
+  const home = getHomeDir(env);
+  return defaultPathEntriesForHome(home, {
+    appData:
+      getEnvironmentValue(env, "APPDATA") ||
+      getServiceEnvironmentValue("APPDATA"),
+    programFiles:
+      getEnvironmentValue(env, "ProgramFiles") ||
+      getServiceEnvironmentValue("ProgramFiles"),
+    programFilesX86:
+      getEnvironmentValue(env, "ProgramFiles(x86)") ||
+      getServiceEnvironmentValue("ProgramFiles(x86)"),
+  });
+}
+
+export function defaultPathEntriesForHome(
+  home: string,
+  options: {
+    appData?: string;
+    programFiles?: string;
+    programFilesX86?: string;
+  } = {},
+): string[] {
+  const isWindowsHome = isWindowsPathEntry(home);
+  const appData =
+    options.appData ||
+    (isWindowsHome ? joinPath(home, "AppData", "Roaming") : "");
+  const programFiles =
+    options.programFiles || (isWindowsHome ? "C:\\Program Files" : "");
+  const programFilesX86 =
+    options.programFilesX86 || (isWindowsHome ? "C:\\Program Files (x86)" : "");
   const dynamic = [
-    home ? PathUtils.join(home, ".local", "bin") : "",
-    home ? PathUtils.join(home, "bin") : "",
-    home ? PathUtils.join(home, ".cargo", "bin") : "",
-    home ? PathUtils.join(home, ".npm-global", "bin") : "",
-    home ? PathUtils.join(home, "Library", "pnpm") : "",
+    home ? joinPath(home, ".local", "bin") : "",
+    home ? joinPath(home, "bin") : "",
+    home ? joinPath(home, ".cargo", "bin") : "",
+    home ? joinPath(home, ".npm-global", "bin") : "",
+    home ? joinPath(home, "Library", "pnpm") : "",
+    appData ? joinPath(appData, "npm") : "",
+    programFiles ? joinPath(programFiles, "nodejs") : "",
+    programFilesX86 ? joinPath(programFilesX86, "nodejs") : "",
   ];
   return [
     "/opt/homebrew/bin",
@@ -671,7 +704,10 @@ function expandHomePath(path: string): string {
   return path;
 }
 
-function getHomeDir(): string {
+function getHomeDir(env: Record<string, string> = {}): string {
+  const configuredHome = getEnvironmentValue(env, "HOME", "USERPROFILE");
+  if (configuredHome) return configuredHome;
+
   if (typeof PathUtils !== "undefined") {
     const pathUtils = PathUtils as unknown as { homeDir?: unknown };
     if (typeof pathUtils.homeDir === "string") {
@@ -679,7 +715,7 @@ function getHomeDir(): string {
     }
   }
   if (typeof Services !== "undefined") {
-    const envHome = Services.env.get("HOME") || Services.env.get("USERPROFILE");
+    const envHome = getServiceEnvironmentValue("HOME", "USERPROFILE");
     if (envHome) return envHome;
   }
 
@@ -691,6 +727,51 @@ function getHomeDir(): string {
   } catch {
     return "";
   }
+}
+
+function getEnvironmentValue(
+  env: Record<string, string>,
+  ...names: string[]
+): string {
+  for (const name of names) {
+    const value = env[name];
+    if (value) return value;
+  }
+  const lowerNames = new Set(names.map((name) => name.toLowerCase()));
+  for (const [key, value] of Object.entries(env)) {
+    if (value && lowerNames.has(key.toLowerCase())) return value;
+  }
+  return "";
+}
+
+function getServiceEnvironmentValue(...names: string[]): string {
+  if (typeof Services === "undefined") return "";
+  const candidates = new Set<string>();
+  for (const name of names) {
+    candidates.add(name);
+    candidates.add(name.toUpperCase());
+    candidates.add(name.toLowerCase());
+  }
+  for (const name of candidates) {
+    const value = Services.env.get(name);
+    if (value) return value;
+  }
+  return "";
+}
+
+function joinPath(...parts: string[]): string {
+  if (typeof PathUtils !== "undefined") return PathUtils.join(...parts);
+  const values = parts.filter((part) => !!part);
+  if (!values.length) return "";
+  const separator = values.some(isWindowsPathEntry) ? "\\" : "/";
+  return values
+    .map((part, index) =>
+      index === 0
+        ? part.replace(/[\\/]+$/, "")
+        : part.replace(/^[\\/]+|[\\/]+$/g, ""),
+    )
+    .filter((part) => !!part)
+    .join(separator);
 }
 
 function getSubprocessModule(): {

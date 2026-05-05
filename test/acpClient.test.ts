@@ -2,6 +2,7 @@ import { assert } from "chai";
 import {
   AcpClient,
   closeAllClients,
+  defaultPathEntriesForHome,
   deriveHomeFromProfileDir,
   executableNameCandidates,
   getClient,
@@ -109,6 +110,18 @@ describe("ACP client pool", function () {
       "npx.exe",
       "npx.bat",
     ]);
+  });
+
+  it("includes common Windows Node and npm search paths", function () {
+    const entries = defaultPathEntriesForHome("C:\\Users\\ouyang", {
+      appData: "C:\\Users\\ouyang\\AppData\\Roaming",
+      programFiles: "C:\\Program Files",
+      programFilesX86: "C:\\Program Files (x86)",
+    });
+
+    assert.include(entries, "C:\\Program Files\\nodejs");
+    assert.include(entries, "C:\\Program Files (x86)\\nodejs");
+    assert.include(entries, "C:\\Users\\ouyang\\AppData\\Roaming\\npm");
   });
 
   it("keeps notifying update listeners after one listener fails", function () {
