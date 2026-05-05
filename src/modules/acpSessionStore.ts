@@ -132,7 +132,26 @@ export function normalizeStoreDocument(store: unknown): StoreDocument {
       updatedAt,
     });
   }
-  return { version: 1, records: normalized.filter((record) => !!record.key) };
+  return { version: 1, records: dedupeRecordsByKey(normalized) };
+}
+
+function dedupeRecordsByKey(records: SessionRecord[]): SessionRecord[] {
+  const byKey = new Map<string, SessionRecord>();
+  for (const record of records) {
+    if (!record.key) continue;
+    const existing = byKey.get(record.key);
+    if (!existing || isRecordNewer(record, existing)) {
+      byKey.set(record.key, record);
+    }
+  }
+  return Array.from(byKey.values());
+}
+
+function isRecordNewer(candidate: SessionRecord, existing: SessionRecord) {
+  return (
+    new Date(candidate.updatedAt).getTime() >=
+    new Date(existing.updatedAt).getTime()
+  );
 }
 
 function makeTopicId(): string {

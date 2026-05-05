@@ -71,4 +71,39 @@ describe("ACP session store normalization", function () {
       },
     ]);
   });
+
+  it("deduplicates records by key and keeps the newest version", function () {
+    const store = normalizeStoreDocument({
+      records: [
+        {
+          key: "1:2:3:topic",
+          messages: [
+            {
+              id: "older",
+              role: "user",
+              text: "Older question",
+              createdAt: "2026-01-01T00:00:00.000Z",
+            },
+          ],
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          key: "1:2:3:topic",
+          messages: [
+            {
+              id: "newer",
+              role: "user",
+              text: "Newer question",
+              createdAt: "2026-01-02T00:00:00.000Z",
+            },
+          ],
+          updatedAt: "2026-01-02T00:00:00.000Z",
+        },
+      ],
+    });
+
+    assert.lengthOf(store.records, 1);
+    assert.equal(store.records[0].updatedAt, "2026-01-02T00:00:00.000Z");
+    assert.equal(store.records[0].messages[0].id, "newer");
+  });
 });
