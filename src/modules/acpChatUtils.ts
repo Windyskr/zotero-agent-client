@@ -160,7 +160,10 @@ export function normalizeConfigOptions(raw: unknown): SessionConfigOption[] {
             .filter(isSessionConfigOptionValue)
         : [],
     );
-    if (!id || !name || !currentValue || !values.length) continue;
+    const selectedValue = values.some((value) => value.value === currentValue)
+      ? currentValue
+      : (values[0]?.value ?? "");
+    if (!id || !name || !selectedValue || !values.length) continue;
     normalized.push({
       id,
       name,
@@ -171,7 +174,7 @@ export function normalizeConfigOptions(raw: unknown): SessionConfigOption[] {
         ? { category: option.category.trim() }
         : {}),
       type: "select",
-      currentValue,
+      currentValue: selectedValue,
       options: values,
     });
   }

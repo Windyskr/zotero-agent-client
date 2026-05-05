@@ -88,6 +88,35 @@ describe("ACP chat utilities", function () {
     );
   });
 
+  it("falls back to the first config option value when current value is invalid", function () {
+    assert.deepEqual(
+      normalizeConfigOptions([
+        {
+          id: "model",
+          name: "Model",
+          type: "select",
+          currentValue: "missing",
+          options: [
+            { value: "gpt-1", name: "GPT 1" },
+            { value: "gpt-2", name: "GPT 2" },
+          ],
+        },
+      ]),
+      [
+        {
+          id: "model",
+          name: "Model",
+          type: "select",
+          currentValue: "gpt-1",
+          options: [
+            { value: "gpt-1", name: "GPT 1" },
+            { value: "gpt-2", name: "GPT 2" },
+          ],
+        },
+      ],
+    );
+  });
+
   it("creates stable simple hashes and stringifies errors", function () {
     assert.equal(simpleHash("paper"), simpleHash("paper"));
     assert.match(simpleHash("paper"), /^[0-9a-f]{8}$/);
