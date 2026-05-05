@@ -27,7 +27,9 @@ PDF 发送给你电脑上的 ACP Agent，让你在 Zotero 里直接向论文提�
 ### Windows / Linux 提示
 
 - Windows：安装 Node.js 后请重启 Zotero，让 Zotero 能读取新的 `PATH` 和
-  `PATHEXT`。插件会自动尝试 `npx.cmd`、`npx.exe` 等 Windows 可执行后缀。
+  `PATHEXT`。插件会自动尝试 `npx.cmd`、`npx.exe` 等 Windows 可执行后缀，
+  也会兜底查找常见的 Node/npm 目录，例如 `C:\Program Files\nodejs` 和
+  `%APPDATA%\npm`。
 - Linux：如果你用 `nvm`、`asdf` 或其他用户级 Node.js 管理器安装 Node.js，请
   确认从桌面启动的 Zotero 也能访问同一个 `npx`。如果 agent 启动失败，可以在
   `Agent profiles JSON` 的 `env` 里显式补充 `PATH`。
