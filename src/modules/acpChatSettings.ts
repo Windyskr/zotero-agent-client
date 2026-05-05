@@ -83,7 +83,7 @@ export function normalizeAgentProfiles(profiles: unknown): AgentProfile[] {
 function normalizeAgentProfile(profile: AgentProfileInput): AgentProfile {
   const id = profile.id.trim();
   const name = profile.name.trim();
-  const command = profile.command.trim();
+  const command = profile.command.trim().toLowerCase();
   if (!id || !name) {
     throw new Error("Agent profiles require non-empty id and name.");
   }

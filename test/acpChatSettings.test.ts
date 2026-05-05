@@ -65,6 +65,27 @@ describe("ACP chat settings", function () {
     ]);
   });
 
+  it("accepts npx command casing from manual settings", function () {
+    const profiles = normalizeAgentProfiles([
+      {
+        id: "codex",
+        name: "Codex",
+        command: " NPX ",
+        args: ["@scope/agent"],
+      },
+    ]);
+
+    assert.deepEqual(profiles, [
+      {
+        id: "codex",
+        name: "Codex",
+        command: "npx",
+        args: ["-y", "@scope/agent"],
+        env: {},
+      },
+    ]);
+  });
+
   it("deduplicates profiles by normalized id", function () {
     const profiles = normalizeAgentProfiles([
       {
