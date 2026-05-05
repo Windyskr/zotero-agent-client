@@ -106,6 +106,8 @@ export function isReactRuntimeModule(
   return (
     hasFunctionProperty(value, "createElement") &&
     hasFunctionProperty(value, "useEffect") &&
+    hasFunctionProperty(value, "useMemo") &&
+    hasFunctionProperty(value, "useRef") &&
     hasFunctionProperty(value, "useState")
   );
 }

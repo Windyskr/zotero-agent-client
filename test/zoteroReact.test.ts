@@ -105,12 +105,21 @@ describe("Zotero React runtime lookup", function () {
       isReactRuntimeModule({
         createElement() {},
         useEffect() {},
+        useMemo() {},
+        useRef() {},
         useState() {},
       }),
     );
     assert.isFalse(
       isReactRuntimeModule({
         createElement() {},
+        useState() {},
+      }),
+    );
+    assert.isFalse(
+      isReactRuntimeModule({
+        createElement() {},
+        useEffect() {},
         useState() {},
       }),
     );
