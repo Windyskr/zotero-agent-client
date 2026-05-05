@@ -33,6 +33,14 @@ describe("ACP JSON stream parser", function () {
     assert.equal(result.rest, "");
   });
 
+  it("bounds ignored non-JSON prefixes before returning them", function () {
+    const valid = '{"jsonrpc":"2.0","id":2,"result":null}';
+    const result = extractJsonMessagesFromBuffer(`${"x".repeat(250)}${valid}`);
+
+    assert.deepEqual(result.messages, [valid]);
+    assert.deepEqual(result.ignoredPrefixes, [`${"x".repeat(200)}...`]);
+  });
+
   it("handles nested arrays and escaped quotes inside strings", function () {
     const input =
       '{"params":{"command":["echo","a \\"quoted\\" brace }"],"nested":[{"ok":true}]}}';

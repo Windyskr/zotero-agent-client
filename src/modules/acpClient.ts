@@ -352,9 +352,7 @@ export class AcpClient {
           extractJsonMessagesFromBuffer(buffer);
         buffer = rest;
         for (const ignored of ignoredPrefixes) {
-          Zotero.debug(
-            `[acpchat] ignoring non-JSON stdout: ${ignored.slice(0, 200)}`,
-          );
+          Zotero.debug(`[acpchat] ignoring non-JSON stdout: ${ignored}`);
         }
         for (const raw of messages) {
           try {

@@ -4,6 +4,8 @@ export interface JsonStreamExtraction {
   ignoredPrefixes: string[];
 }
 
+const MAX_IGNORED_PREFIX_LENGTH = 200;
+
 export function extractJsonMessagesFromBuffer(
   buffer: string,
 ): JsonStreamExtraction {
@@ -14,12 +16,11 @@ export function extractJsonMessagesFromBuffer(
   while (rest.length) {
     const start = findFirstJsonStart(rest);
     if (start < 0) {
-      if (rest.trim()) ignoredPrefixes.push(rest.trim());
+      appendIgnoredPrefix(ignoredPrefixes, rest);
       return { messages, rest: "", ignoredPrefixes };
     }
 
-    const prefix = rest.slice(0, start).trim();
-    if (prefix) ignoredPrefixes.push(prefix);
+    appendIgnoredPrefix(ignoredPrefixes, rest.slice(0, start));
     rest = rest.slice(start);
 
     const end = findJsonBoundary(rest);
@@ -36,6 +37,16 @@ export function extractJsonMessagesFromBuffer(
   }
 
   return { messages, rest, ignoredPrefixes };
+}
+
+function appendIgnoredPrefix(ignoredPrefixes: string[], prefix: string): void {
+  const trimmed = prefix.trim();
+  if (!trimmed) return;
+  ignoredPrefixes.push(
+    trimmed.length > MAX_IGNORED_PREFIX_LENGTH
+      ? `${trimmed.slice(0, MAX_IGNORED_PREFIX_LENGTH)}...`
+      : trimmed,
+  );
 }
 
 function findFirstJsonStart(input: string): number {
