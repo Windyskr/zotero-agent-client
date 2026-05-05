@@ -44,7 +44,7 @@ export function formatPlainTemplate(
   args?: Record<string, unknown>,
 ): string {
   if (!args) return template;
-  return template.replace(/\{\s*(\w+)\s*\}/g, (match, key) =>
+  return template.replace(/\{\s*\$?(\w+)\s*\}/g, (match, key) =>
     Object.hasOwn(args, key) ? formatPlainValue(args[key]) : match,
   );
 }

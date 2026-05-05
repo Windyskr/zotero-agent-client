@@ -9,6 +9,13 @@ describe("ACP localization fallback", function () {
     );
   });
 
+  it("formats Fluent-style dollar placeholders", function () {
+    assert.equal(
+      formatPlainTemplate("Starting { $agent }...", { agent: "Codex" }),
+      "Starting Codex...",
+    );
+  });
+
   it("leaves unknown placeholders intact", function () {
     assert.equal(
       formatPlainTemplate("{known} {missing}", { known: "yes" }),
