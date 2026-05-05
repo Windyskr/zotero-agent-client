@@ -91,11 +91,11 @@ export function normalizeAgentProfiles(profiles: unknown): AgentProfile[] {
 function normalizeAgentProfile(profile: AgentProfileInput): AgentProfile {
   const id = profile.id.trim();
   const name = profile.name.trim();
-  const command = profile.command.trim().toLowerCase();
+  const command = normalizeNpxCommand(profile.command);
   if (!id || !name) {
     throw new Error("Agent profiles require non-empty id and name.");
   }
-  if (command !== "npx") {
+  if (!command) {
     throw new Error(
       `NPX-only mode: unsupported agent command "${profile.command}".`,
     );
@@ -122,6 +122,16 @@ function normalizeAgentProfile(profile: AgentProfileInput): AgentProfile {
     args: normalizedArgs,
     env: normalizeEnvironment(profile.env ?? {}),
   };
+}
+
+function normalizeNpxCommand(command: string): "npx" | null {
+  const normalized = command.trim().toLowerCase();
+  return normalized === "npx" ||
+    normalized === "npx.cmd" ||
+    normalized === "npx.exe" ||
+    normalized === "npx.bat"
+    ? "npx"
+    : null;
 }
 
 function defaultNpxPackageForProfile(profileId: string): string | null {

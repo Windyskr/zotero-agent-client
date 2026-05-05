@@ -74,6 +74,12 @@ describe("ACP chat settings", function () {
         command: " NPX ",
         args: ["@scope/agent"],
       },
+      {
+        id: "windows",
+        name: "Windows",
+        command: "npx.cmd",
+        args: ["@scope/windows-agent"],
+      },
     ]);
 
     assert.deepEqual(profiles, [
@@ -82,6 +88,13 @@ describe("ACP chat settings", function () {
         name: "Codex",
         command: "npx",
         args: ["-y", "@scope/agent"],
+        env: {},
+      },
+      {
+        id: "windows",
+        name: "Windows",
+        command: "npx",
+        args: ["-y", "@scope/windows-agent"],
         env: {},
       },
     ]);
