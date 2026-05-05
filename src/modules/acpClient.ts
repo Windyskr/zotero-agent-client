@@ -575,7 +575,7 @@ export function splitPathEntries(pathValue: string): string[] {
       : ":";
   const entries = separator ? value.split(separator) : [value];
   return entries
-    .map((entry) => expandHomePath(entry.trim()))
+    .map((entry) => expandHomePath(stripSurroundingQuotes(entry.trim())))
     .filter((entry) => !!entry);
 }
 
@@ -586,6 +586,15 @@ export function joinPathEntries(pathEntries: string[]): string {
 
 function isWindowsPathEntry(path: string): boolean {
   return /^[A-Za-z]:[\\/]/.test(path) || path.startsWith("\\\\");
+}
+
+function stripSurroundingQuotes(value: string): string {
+  if (value.length < 2) return value;
+  const first = value[0];
+  const last = value[value.length - 1];
+  return (first === '"' && last === '"') || (first === "'" && last === "'")
+    ? value.slice(1, -1).trim()
+    : value;
 }
 
 export function isPathLikeCommand(command: string): boolean {

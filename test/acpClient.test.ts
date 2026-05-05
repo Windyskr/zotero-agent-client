@@ -75,6 +75,10 @@ describe("ACP client pool", function () {
     assert.deepEqual(splitPathEntries("C:\\Program Files\\nodejs"), [
       "C:\\Program Files\\nodejs",
     ]);
+    assert.deepEqual(
+      splitPathEntries('"C:\\Program Files\\nodejs";"C:\\Tools"'),
+      ["C:\\Program Files\\nodejs", "C:\\Tools"],
+    );
     assert.equal(
       joinPathEntries(["C:\\Program Files\\nodejs", "C:\\Windows\\System32"]),
       "C:\\Program Files\\nodejs;C:\\Windows\\System32",
