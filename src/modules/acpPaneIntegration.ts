@@ -84,7 +84,8 @@ function focusAcpPane(win: Window, paneId: string): void {
   ) as CollapsiblePaneElement | null;
   if (pane) pane.collapsed = false;
   itemDetails.pinnedPane = paneID;
-  void itemDetails.scrollToPane?.(paneID, "smooth");
+  const scrollPromise = itemDetails.scrollToPane?.(paneID, "smooth");
+  void scrollPromise?.catch(logPaneError);
 }
 
 export function movePaneToTop(body: HTMLElement): void {
@@ -94,7 +95,22 @@ export function movePaneToTop(body: HTMLElement): void {
   const itemDetails = body.closest("item-details") as ItemDetailsElement | null;
   const paneID = section?.dataset?.pane;
   if (!paneID || typeof itemDetails?.changePaneOrder !== "function") return;
-  void itemDetails.changePaneOrder(paneID, 0, { render: false });
+  void itemDetails
+    .changePaneOrder(paneID, 0, { render: false })
+    .catch(logPaneError);
+}
+
+function logPaneError(error: unknown): void {
+  try {
+    if (
+      typeof Zotero !== "undefined" &&
+      typeof Zotero.logError === "function"
+    ) {
+      Zotero.logError(error as Error);
+    }
+  } catch {
+    // Pane lifecycle errors should not prevent reader rendering.
+  }
 }
 
 function toReaderToolbarEvent(value: unknown): ReaderToolbarEvent | null {
