@@ -527,6 +527,7 @@ export function Composer({
 
       <div className="acpchat-composer-card">
         <textarea
+          aria-label={l10n("acpchat-input-label", "Prompt")}
           className="acpchat-input"
           cols={20}
           disabled={disabled}
@@ -570,7 +571,14 @@ export function Composer({
               +
             </button>
             {isAttachMenuOpen && (
-              <div className="acpchat-attach-menu" role="menu">
+              <div
+                aria-label={l10n(
+                  "acpchat-attach-button-title",
+                  "Choose attachment",
+                )}
+                className="acpchat-attach-menu"
+                role="menu"
+              >
                 <button
                   aria-label={l10n("acpchat-attach-local-title", "Local file")}
                   className="acpchat-attach-option"
@@ -623,6 +631,7 @@ export function Composer({
           <div className="acpchat-config-selects">
             {modelOption && (
               <select
+                aria-label={modelOption.name}
                 className="acpchat-select acpchat-select-compact"
                 disabled={disabled || isRunning}
                 onChange={(event) =>
@@ -632,6 +641,7 @@ export function Composer({
                   )
                 }
                 style={compactSelectStyle(modelOption)}
+                title={modelOption.description || modelOption.name}
                 value={modelOption.currentValue}
               >
                 {modelOption.options.map((option) => (
@@ -643,6 +653,7 @@ export function Composer({
             )}
             {thoughtOption && (
               <select
+                aria-label={thoughtOption.name}
                 className="acpchat-select acpchat-select-compact"
                 disabled={disabled || isRunning}
                 onChange={(event) =>
@@ -652,6 +663,7 @@ export function Composer({
                   )
                 }
                 style={compactSelectStyle(thoughtOption)}
+                title={thoughtOption.description || thoughtOption.name}
                 value={thoughtOption.currentValue}
               >
                 {thoughtOption.options.map((option) => (

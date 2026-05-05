@@ -23,6 +23,7 @@ export type FluentMessageId =
   | 'acpchat-filepicker-unavailable'
   | 'acpchat-history-button'
   | 'acpchat-input-disabled-placeholder'
+  | 'acpchat-input-label'
   | 'acpchat-input-placeholder'
   | 'acpchat-library-attachment-picker-message'
   | 'acpchat-library-attachment-picker-title'

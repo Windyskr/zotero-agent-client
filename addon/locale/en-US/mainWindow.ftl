@@ -32,6 +32,7 @@ acpchat-library-file-missing = The selected Zotero item has no local files.
 acpchat-library-attachment-picker-title = Choose item file
 acpchat-library-attachment-picker-message = This Zotero item has multiple local files.
 acpchat-pause-button = Pause
+acpchat-input-label = Prompt
 acpchat-input-placeholder = Ask about the argument, method, evidence, or next experiments...
 acpchat-input-disabled-placeholder = Attach or open a local PDF before starting a chat.
 acpchat-send-button = Send

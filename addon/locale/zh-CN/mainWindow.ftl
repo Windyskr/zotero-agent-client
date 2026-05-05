@@ -32,6 +32,7 @@ acpchat-library-file-missing = 选中的 Zotero 文献没有本地文件。
 acpchat-library-attachment-picker-title = 选择文献文件
 acpchat-library-attachment-picker-message = 这条 Zotero 文献有多个本地文件。
 acpchat-pause-button = 暂停
+acpchat-input-label = 提示词
 acpchat-input-placeholder = 询问这篇论文的论点、方法、证据或后续实验...
 acpchat-input-disabled-placeholder = 请先附加或打开本地 PDF，再开始聊天。
 acpchat-send-button = 发送
