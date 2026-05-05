@@ -24,6 +24,21 @@ describe("ACP update reducer", function () {
     assert.equal(next.updatedAt, "2026-01-01T00:00:01.000Z");
   });
 
+  it("ignores text chunks for missing assistant messages", function () {
+    const record = makeRecord();
+    const next = applyAcpUpdate(
+      record,
+      "missing-assistant",
+      {
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: " ignored" },
+      },
+      "2026-01-01T00:00:01.000Z",
+    );
+
+    assert.strictEqual(next, record);
+  });
+
   it("upserts tool calls without duplicating messages", function () {
     const first = applyAcpUpdate(
       makeRecord(),

@@ -19,6 +19,9 @@ export function applyAcpUpdate(
     if (content?.type !== "text" || typeof content.text !== "string") {
       return record;
     }
+    if (!record.messages.some((message) => message.id === assistantMessageId)) {
+      return record;
+    }
     return {
       ...record,
       messages: record.messages.map((message) =>
