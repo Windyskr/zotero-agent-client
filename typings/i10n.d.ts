@@ -65,6 +65,7 @@ export type FluentMessageId =
   | 'pref-clear-cache'
   | 'pref-clear-cache-button'
   | 'pref-clear-cache-done'
+  | 'pref-clear-cache-empty'
   | 'pref-clear-cache-failed'
   | 'pref-clear-cache-running'
   | 'pref-default-agent'

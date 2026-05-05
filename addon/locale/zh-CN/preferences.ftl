@@ -6,5 +6,6 @@ pref-clear-cache = 本地缓存
 pref-clear-cache-button = 清理 Agent Client 缓存
 pref-clear-cache-running = 正在清理缓存...
 pref-clear-cache-done = 缓存已清理。如果面板仍然显示旧状态，请重新打开阅读器标签页。
+pref-clear-cache-empty = 没有找到可清理的缓存文件。
 pref-clear-cache-failed = 部分缓存未能清理，请查看 Zotero 错误日志。
 pref-help = { $name } Build { $version } { $time }

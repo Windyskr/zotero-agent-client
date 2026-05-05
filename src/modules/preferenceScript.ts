@@ -31,7 +31,7 @@ function bindClearCacheButton(prefWindow: Window): void {
         await setStatus(
           status,
           doc,
-          "pref-clear-cache-done",
+          removed ? "pref-clear-cache-done" : "pref-clear-cache-empty",
           removed
             ? "Cache cleared. Reopen the reader tab if the panel is still stale."
             : "No cache files found.",

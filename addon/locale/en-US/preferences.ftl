@@ -6,5 +6,6 @@ pref-clear-cache = Local cache
 pref-clear-cache-button = Clear Agent Client cache
 pref-clear-cache-running = Clearing cache...
 pref-clear-cache-done = Cache cleared. Reopen the reader tab if the panel is still stale.
+pref-clear-cache-empty = No cache files found.
 pref-clear-cache-failed = Some cache files could not be cleared. Check the Zotero error log.
 pref-help = { $name } Build { $version } { $time }
