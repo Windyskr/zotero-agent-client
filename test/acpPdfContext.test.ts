@@ -57,6 +57,26 @@ describe("ACP PDF context", function () {
     });
   });
 
+  it("recognizes PDF MIME types case-insensitively", async function () {
+    const pdfItem = {
+      id: 12,
+      libraryID: 22,
+      attachmentFilename: "paper.pdf",
+      attachmentContentType: " Application/PDF ; charset=binary ",
+      isAttachment: () => true,
+      getFilePathAsync: () => "/tmp/paper.pdf",
+    };
+
+    const context = await resolvePdfContext(pdfItem, l10n);
+
+    assert.include(context, {
+      itemID: 12,
+      libraryID: 22,
+      fileName: "paper.pdf",
+      filePath: "/tmp/paper.pdf",
+    });
+  });
+
   it("uses a parent item's best PDF attachment", async function () {
     const pdfItem = {
       id: 44,

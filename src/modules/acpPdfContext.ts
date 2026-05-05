@@ -73,8 +73,13 @@ async function getPdfAttachment(
 
 function isPdf(item: ZoteroItemLike): boolean {
   return (
-    item.isPDFAttachment?.() || item.attachmentContentType === "application/pdf"
+    item.isPDFAttachment?.() || isPdfContentType(item.attachmentContentType)
   );
+}
+
+function isPdfContentType(contentType: unknown): boolean {
+  if (typeof contentType !== "string") return false;
+  return contentType.split(";")[0].trim().toLowerCase() === "application/pdf";
 }
 
 function finiteNumberOrZero(value: unknown): number {
