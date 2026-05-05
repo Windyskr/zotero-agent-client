@@ -53,6 +53,7 @@ const markdown = createMarkdownRenderer();
 let isSectionRegistered = false;
 let toolbarHandler: ReaderToolbarHandler | null = null;
 const panelRoots = new Map<HTMLElement, AcpChatRoot>();
+const panelRenderTokens = new Map<HTMLElement, symbol>();
 type ItemPaneSectionHookArgs =
   _ZoteroTypes.ItemPaneManagerSection.SectionHookArgs;
 
@@ -103,6 +104,7 @@ export function unregisterAcpChat(): void {
     root.unmount();
   }
   panelRoots.clear();
+  panelRenderTokens.clear();
   for (const win of Zotero.getMainWindows()) {
     win.document.getElementById("acpchat-style")?.remove();
   }
@@ -117,6 +119,7 @@ export function unloadAcpChatWindow(win: Window): void {
     if (body.ownerDocument?.defaultView !== win) continue;
     root.unmount();
     panelRoots.delete(body);
+    panelRenderTokens.delete(body);
   }
   win.document.getElementById("acpchat-style")?.remove();
 }
@@ -138,14 +141,18 @@ function injectStyle(win: Window): void {
   style.textContent = ACP_CHAT_STYLE;
 }
 function renderPanel(body: HTMLElement, item: Zotero.Item): void {
+  const renderToken = Symbol("acpchat-render");
+  panelRenderTokens.set(body, renderToken);
   panelRoots.get(body)?.unmount();
   panelRoots.delete(body);
   body.classList.add("acpchat-host");
   renderPlainLoading(body, getMainWindowString);
 
-  void renderPanelAsync(body, item).catch((error) => {
+  void renderPanelAsync(body, item, renderToken).catch((error) => {
+    if (!isCurrentPanelRender(body, renderToken)) return;
     panelRoots.get(body)?.unmount();
     panelRoots.delete(body);
+    panelRenderTokens.delete(body);
     renderPlainError(body, error, getMainWindowString);
   });
 }
@@ -153,8 +160,10 @@ function renderPanel(body: HTMLElement, item: Zotero.Item): void {
 async function renderPanelAsync(
   body: HTMLElement,
   item: Zotero.Item,
+  renderToken: symbol,
 ): Promise<void> {
   const view = await import("./acpChatView");
+  if (!isCurrentPanelRender(body, renderToken)) return;
   const root = view.createAcpChatRoot(body);
   panelRoots.set(body, root);
   root.renderLoading(getMainWindowString);
@@ -177,6 +186,7 @@ async function renderPanelAsync(
     initialStatusOverride = { kind: "error", text: toMessage(error) };
     pdf = null;
   }
+  if (!isCurrentPanelRender(body, renderToken)) return;
   let activeSessionId: string | null = null;
 
   let initialLoadedState: {
@@ -204,6 +214,7 @@ async function renderPanelAsync(
       };
     }
   }
+  if (!isCurrentPanelRender(body, renderToken)) return;
   const initialRecord =
     initialLoadedState?.record ??
     (pdf
@@ -522,7 +533,8 @@ async function renderPanelAsync(
     );
   };
 
-  if (panelRoots.get(body) !== root) return;
+  if (!isCurrentPanelRender(body, renderToken) || panelRoots.get(body) !== root)
+    return;
   root.renderPanel({
     initialConfigOptions,
     initialRecord,
@@ -540,6 +552,10 @@ async function renderPanelAsync(
     renderMarkdown: (text: string) => markdown.render(text),
     settings,
   });
+}
+
+function isCurrentPanelRender(body: HTMLElement, renderToken: symbol): boolean {
+  return panelRenderTokens.get(body) === renderToken;
 }
 
 async function persistRecord(
