@@ -44,13 +44,16 @@ describe("ACP chat utilities", function () {
     assert.deepEqual(
       normalizeConfigOptions([
         {
-          id: "model",
-          name: "Model",
-          category: "model",
+          id: " model ",
+          name: " Model ",
+          category: " model ",
           type: "select",
-          currentValue: "gpt",
+          currentValue: " gpt ",
           options: [
-            { value: "gpt", name: "GPT", description: "Default" },
+            { value: " gpt ", name: " GPT ", description: " Default " },
+            { value: "gpt", name: "Duplicate" },
+            { value: " ", name: "Blank value" },
+            { value: "other", name: " " },
             { value: 1, name: "Bad" },
           ],
         },

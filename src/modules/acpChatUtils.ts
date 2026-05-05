@@ -121,40 +121,46 @@ export function normalizeConfigOptions(raw: unknown): SessionConfigOption[] {
     if (!isRecord(item)) continue;
     const option = item;
     if (option.type !== "select") continue;
-    const id = typeof option.id === "string" ? option.id : "";
-    const name = typeof option.name === "string" ? option.name : "";
+    const id = typeof option.id === "string" ? option.id.trim() : "";
+    const name = typeof option.name === "string" ? option.name.trim() : "";
     const currentValue =
-      typeof option.currentValue === "string" ? option.currentValue : "";
-    const values = Array.isArray(option.options)
-      ? option.options
-          .map((entry) => {
-            if (!isRecord(entry)) return null;
-            const value = entry;
-            if (
-              typeof value.value !== "string" ||
-              typeof value.name !== "string"
-            ) {
-              return null;
-            }
-            return {
-              value: value.value,
-              name: value.name,
-              ...(typeof value.description === "string"
-                ? { description: value.description }
-                : {}),
-            };
-          })
-          .filter(isSessionConfigOptionValue)
-      : [];
+      typeof option.currentValue === "string" ? option.currentValue.trim() : "";
+    const values = dedupeConfigOptionValues(
+      Array.isArray(option.options)
+        ? option.options
+            .map((entry) => {
+              if (!isRecord(entry)) return null;
+              const value = entry;
+              if (
+                typeof value.value !== "string" ||
+                typeof value.name !== "string"
+              ) {
+                return null;
+              }
+              const normalizedValue = value.value.trim();
+              const normalizedName = value.name.trim();
+              if (!normalizedValue || !normalizedName) return null;
+              return {
+                value: normalizedValue,
+                name: normalizedName,
+                ...(typeof value.description === "string" &&
+                value.description.trim()
+                  ? { description: value.description.trim() }
+                  : {}),
+              };
+            })
+            .filter(isSessionConfigOptionValue)
+        : [],
+    );
     if (!id || !name || !currentValue || !values.length) continue;
     normalized.push({
       id,
       name,
-      ...(typeof option.description === "string"
-        ? { description: option.description }
+      ...(typeof option.description === "string" && option.description.trim()
+        ? { description: option.description.trim() }
         : {}),
-      ...(typeof option.category === "string"
-        ? { category: option.category }
+      ...(typeof option.category === "string" && option.category.trim()
+        ? { category: option.category.trim() }
         : {}),
       type: "select",
       currentValue,
@@ -162,6 +168,19 @@ export function normalizeConfigOptions(raw: unknown): SessionConfigOption[] {
     });
   }
   return normalized;
+}
+
+function dedupeConfigOptionValues(
+  values: SessionConfigOptionValue[],
+): SessionConfigOptionValue[] {
+  const seen = new Set<string>();
+  const deduped: SessionConfigOptionValue[] = [];
+  for (const value of values) {
+    if (seen.has(value.value)) continue;
+    seen.add(value.value);
+    deduped.push(value);
+  }
+  return deduped;
 }
 
 function isSessionConfigOptionValue(
