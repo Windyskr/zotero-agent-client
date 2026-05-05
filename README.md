@@ -26,7 +26,7 @@ PDF 发送给你电脑上的 ACP Agent，让你在 Zotero 里直接向论文提�
 
 ## 安装插件
 
-1. 下载插件的 `.xpi` 文件。
+1. 在项目的 GitHub Releases 页面下载最新版本的 `.xpi` 文件。
 2. 打开 Zotero。
 3. 进入 `工具` -> `插件`。
 4. 点击右上角齿轮菜单，选择 `Install Add-on From File...`。
