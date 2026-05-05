@@ -2,6 +2,7 @@ import { assert } from "chai";
 import {
   isReactDomRootModule,
   isReactRuntimeModule,
+  resolveZoteroReactDom,
   resolveZoteroWindowModule,
 } from "../src/modules/zoteroReact";
 
@@ -63,6 +64,39 @@ describe("Zotero React runtime lookup", function () {
         () => fallback,
       ),
       fallback,
+    );
+  });
+
+  it("prefers react-dom/client when resolving ReactDOM roots", function () {
+    const clientModule = { createRoot() {} };
+    const legacyModule = { render() {} };
+
+    assert.strictEqual(
+      resolveZoteroReactDom(
+        makeWindow({
+          require: (moduleName: string) =>
+            moduleName === "react-dom/client" ? clientModule : legacyModule,
+        }),
+      ),
+      clientModule,
+    );
+  });
+
+  it("falls back to react-dom when the client entry is unavailable", function () {
+    const legacyModule = { createRoot() {} };
+
+    assert.strictEqual(
+      resolveZoteroReactDom(
+        makeWindow({
+          require: (moduleName: string) => {
+            if (moduleName === "react-dom/client") {
+              throw new Error("missing module");
+            }
+            return legacyModule;
+          },
+        }),
+      ),
+      legacyModule,
     );
   });
 

@@ -35,13 +35,11 @@ export function getZoteroReact(win?: Window): typeof ReactTypes {
 
 export function createZoteroReactRoot(container: HTMLElement): Root {
   const win = getRuntimeWindow(container.ownerDocument?.defaultView ?? null);
-  const reactDom = resolveZoteroWindowModule(win, "react-dom", "ReactDOM");
+  const reactDom = resolveZoteroReactDom(win);
   if (!isReactDomRootModule(reactDom)) {
     throw new Error(
-      `Zotero ReactDOM.createRoot is unavailable: ${describeLookup(
+      `Zotero ReactDOM.createRoot is unavailable: ${describeReactDomLookup(
         win,
-        "react-dom",
-        "ReactDOM",
       )}`,
     );
   }
@@ -63,8 +61,20 @@ export function resolveZoteroWindowModule(
   return (
     safeRequire(zoteroWindow, moduleName) ??
     zoteroWindow[globalName as keyof ZoteroWindow] ??
-    getGlobal(globalName)
+    safeGetGlobal(globalName, getGlobal)
   );
+}
+
+export function resolveZoteroReactDom(win: Window): unknown {
+  const clientModule = resolveZoteroWindowModule(
+    win,
+    "react-dom/client",
+    "ReactDOM",
+  );
+  if (isReactDomRootModule(clientModule)) return clientModule;
+  const legacyModule = resolveZoteroWindowModule(win, "react-dom", "ReactDOM");
+  if (isReactDomRootModule(legacyModule)) return legacyModule;
+  return clientModule ?? legacyModule;
 }
 
 function safeRequire(win: ZoteroWindow, moduleName: string): unknown {
@@ -72,6 +82,20 @@ function safeRequire(win: ZoteroWindow, moduleName: string): unknown {
     return win.require?.(moduleName);
   } catch (error) {
     debugZotero(`[Agent Client] Failed to require ${moduleName}: ${error}`);
+    return null;
+  }
+}
+
+function safeGetGlobal(
+  globalName: string,
+  getGlobal: (globalName: string) => unknown,
+): unknown {
+  try {
+    return getGlobal(globalName);
+  } catch (error) {
+    debugZotero(
+      `[Agent Client] Failed to resolve global ${globalName}: ${error}`,
+    );
     return null;
   }
 }
@@ -106,11 +130,19 @@ function describeLookup(
 ): string {
   const required = safeRequire(win, moduleName);
   const globalValue =
-    win[globalName as keyof ZoteroWindow] ?? basicTool.getGlobal(globalName);
+    win[globalName as keyof ZoteroWindow] ??
+    safeGetGlobal(globalName, (name) => basicTool.getGlobal(name));
   return [
     `window.require=${typeof win.require === "function"}`,
     `require("${moduleName}")=${describeValue(required)}`,
     `${globalName}=${describeValue(globalValue)}`,
+  ].join("; ");
+}
+
+function describeReactDomLookup(win: ZoteroWindow): string {
+  return [
+    describeLookup(win, "react-dom/client", "ReactDOM"),
+    describeLookup(win, "react-dom", "ReactDOM"),
   ].join("; ");
 }
 
