@@ -25,10 +25,10 @@ describe("ACP attachment candidates", function () {
   it("prefers explicit file names and mime types", function () {
     assert.deepEqual(
       createAttachmentContext({
-        fileName: "renamed.bin",
+        fileName: " renamed.bin ",
         filePath: "/tmp/original.bin",
         fileSize: null,
-        mimeType: "text/plain",
+        mimeType: " text/plain ",
       }),
       {
         fileName: "renamed.bin",
@@ -36,6 +36,23 @@ describe("ACP attachment candidates", function () {
         fileUri: "file:///tmp/original.bin",
         fileSize: null,
         mimeType: "text/plain",
+      },
+    );
+  });
+
+  it("falls back to inferred mime types when explicit mime types are blank", function () {
+    assert.deepEqual(
+      createAttachmentContext({
+        fileName: " ",
+        filePath: "/tmp/paper.pdf",
+        mimeType: " ",
+      }),
+      {
+        fileName: "paper.pdf",
+        filePath: "/tmp/paper.pdf",
+        fileUri: "file:///tmp/paper.pdf",
+        fileSize: null,
+        mimeType: "application/pdf",
       },
     );
   });

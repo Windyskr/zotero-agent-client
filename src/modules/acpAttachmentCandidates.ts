@@ -22,12 +22,16 @@ export function createAttachmentContext({
   fileSize,
   mimeType,
 }: AttachmentContextInput): AttachmentContext {
+  const normalizedFileName = fileName?.trim() || basename(filePath);
+  const normalizedMimeType = mimeType?.trim() || null;
   return {
-    fileName: fileName || basename(filePath),
+    fileName: normalizedFileName,
     filePath,
     fileUri: pathToFileUri(filePath),
     fileSize: fileSize ?? null,
-    ...(mimeType ? { mimeType } : inferOptionalMimeType(filePath)),
+    ...(normalizedMimeType
+      ? { mimeType: normalizedMimeType }
+      : inferOptionalMimeType(filePath)),
   };
 }
 
