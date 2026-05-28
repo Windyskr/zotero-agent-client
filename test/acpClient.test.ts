@@ -1,14 +1,17 @@
 import { assert } from "chai";
 import {
   AcpClient,
+  appendRecentStderr,
   closeAllClients,
   defaultPathEntriesForHome,
   deriveHomeFromProfileDir,
   executableNameCandidates,
+  formatAcpExitError,
   getClient,
   isPathLikeCommand,
   joinPathEntries,
   profileConnectionSignature,
+  shouldAddWindows126Hint,
   splitPathEntries,
 } from "../src/modules/acpClient";
 import type { AgentProfile } from "../src/modules/acpChatTypes";
@@ -149,6 +152,63 @@ describe("ACP client pool", function () {
     });
 
     assert.deepEqual(updates, [{ ok: true }]);
+  });
+});
+
+describe("ACP exit diagnostics", function () {
+  it("keeps only the most recent stderr text", function () {
+    const initial = "first line";
+    const chunk = "x".repeat(4_100);
+    const result = appendRecentStderr(initial, chunk);
+
+    assert.equal(result.length, 4_000);
+    assert.notInclude(result, initial);
+    assert.equal(result, chunk.slice(-4_000));
+  });
+
+  it("includes stderr in nonzero exit errors", function () {
+    const error = formatAcpExitError({
+      exitCode: 126,
+      recentStderr: "spawned command failed",
+      resolvedCommand: "C:/Program Files/nodejs/npx.cmd",
+    });
+
+    assert.include(error.message, "ACP exited with 126");
+    assert.include(error.message, "stderr: spawned command failed");
+  });
+
+  it("adds a Windows-specific hint for npx exit code 126", function () {
+    const error = formatAcpExitError({
+      exitCode: 126,
+      recentStderr: "'claude' is not recognized as an internal or external command",
+      resolvedCommand: "C:/Program Files/nodejs/npx.cmd",
+    });
+
+    assert.include(error.message, "The default ACP profiles run through npx.");
+    assert.include(error.message, "restart Zotero so it picks up PATH changes");
+  });
+
+  it("does not add the Windows hint for other exit codes", function () {
+    assert.isFalse(
+      shouldAddWindows126Hint(1, "C:/Program Files/nodejs/npx.cmd", "failed"),
+    );
+  });
+
+  it("does not add the Windows hint for unrelated commands", function () {
+    assert.isFalse(shouldAddWindows126Hint(126, "/usr/bin/python", "failed"));
+  });
+
+  it("describes zero-exit early termination without stderr", function () {
+    const error = formatAcpExitError({ exitCode: 0 });
+
+    assert.include(
+      error.message,
+      "ACP process exited before completing pending requests",
+    );
+    assert.include(
+      error.message,
+      "The process exited before responding to initialize.",
+    );
   });
 });
 

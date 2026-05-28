@@ -117,6 +117,7 @@ interface AcpOutgoingMessage {
 }
 
 const clientPool = new Map<string, PooledClient>();
+const MAX_STDERR_SNIPPET_LENGTH = 4_000;
 
 export function getClient(profile: AgentProfile): AcpClient {
   const existing = clientPool.get(profile.id);
@@ -154,6 +155,8 @@ export class AcpClient {
   private initializeResult: AcpInitializeResult | null = null;
   private pending = new Map<number, PendingRequest>();
   private updateListeners = new Set<(update: unknown) => void>();
+  private recentStderr = "";
+  private resolvedCommand = "";
 
   constructor(private profile: AgentProfile) {}
 
@@ -188,6 +191,8 @@ export class AcpClient {
       this.profile.command,
       this.profile.env ?? {},
     );
+    this.resolvedCommand = command;
+    this.recentStderr = "";
     const environment = buildProcessEnvironment(this.profile.env ?? {});
     const options: AcpProcessOptions = { command, arguments: args };
     if (Object.keys(environment).length) {
@@ -305,6 +310,8 @@ export class AcpClient {
     } catch {
       // The subprocess may already be gone while Zotero is unloading.
     }
+    this.recentStderr = "";
+    this.resolvedCommand = "";
     this.rejectPending(new Error("ACP process was closed"));
   }
 
@@ -392,6 +399,7 @@ export class AcpClient {
       ) {
         const message = chunk.trim();
         if (message) {
+          this.recentStderr = appendRecentStderr(this.recentStderr, message);
           Zotero.debug(
             `[acpchat] ${this.profile.id} stderr: ${message.slice(0, 2000)}`,
           );
@@ -421,11 +429,14 @@ export class AcpClient {
     if (this.process !== process) return;
     this.process = null;
     this.initializeResult = null;
-    this.rejectPending(
-      result.exitCode === 0
-        ? new Error("ACP process exited before completing pending requests")
-        : new Error(`ACP exited with ${result.exitCode}`),
-    );
+    const error = formatAcpExitError({
+      exitCode: result.exitCode,
+      recentStderr: this.recentStderr,
+      resolvedCommand: this.resolvedCommand,
+    });
+    this.recentStderr = "";
+    this.resolvedCommand = "";
+    this.rejectPending(error);
   }
 
   private handleMessage(message: unknown): void {
@@ -497,6 +508,59 @@ function logUpdateListenerError(error: unknown): void {
   } catch {
     // Listener isolation should work in tests and during Zotero shutdown.
   }
+}
+
+export function appendRecentStderr(current: string, chunk: string): string {
+  const next = current ? `${current}\n${chunk}` : chunk;
+  return next.length <= MAX_STDERR_SNIPPET_LENGTH
+    ? next
+    : next.slice(-MAX_STDERR_SNIPPET_LENGTH);
+}
+
+export function formatAcpExitError(options: {
+  exitCode: number;
+  recentStderr?: string;
+  resolvedCommand?: string;
+}): Error {
+  const { exitCode, recentStderr = "", resolvedCommand = "" } = options;
+  const details: string[] = [];
+  const stderr = recentStderr.trim();
+  if (exitCode === 0) {
+    details.push("ACP process exited before completing pending requests");
+  } else {
+    details.push(`ACP exited with ${exitCode}`);
+  }
+  if (stderr) {
+    details.push(`stderr: ${stderr}`);
+  } else {
+    details.push("The process exited before responding to initialize.");
+  }
+  if (shouldAddWindows126Hint(exitCode, resolvedCommand, stderr)) {
+    details.push(
+      "The default ACP profiles run through npx. On Windows, this usually means Zotero cannot execute npx or a command required by the agent package. Verify Node.js/npm are installed, restart Zotero so it picks up PATH changes, and confirm the agent command works in a normal terminal.",
+    );
+  }
+  return new Error(details.join(" "));
+}
+
+export function shouldAddWindows126Hint(
+  exitCode: number,
+  resolvedCommand: string,
+  stderr: string,
+): boolean {
+  if (exitCode !== 126) return false;
+  const command = resolvedCommand.trim().toLowerCase();
+  const output = stderr.trim().toLowerCase();
+  return (
+    command.endsWith("npx") ||
+    command.endsWith("npx.cmd") ||
+    command.endsWith("npx.exe") ||
+    command.endsWith("npx.bat") ||
+    output.includes("not recognized") ||
+    output.includes("permission denied") ||
+    output.includes("is not recognized as an internal or external command") ||
+    output.includes("cannot execute")
+  );
 }
 
 async function resolveExecutableCommand(
