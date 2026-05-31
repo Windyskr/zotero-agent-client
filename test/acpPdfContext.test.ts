@@ -3,13 +3,42 @@ import { resolvePdfContext } from "../src/modules/acpPdfContext";
 
 describe("ACP PDF context", function () {
   let previousZotero: unknown;
+  let previousPathUtils: unknown;
 
   beforeEach(function () {
     previousZotero = getRuntime().Zotero;
+    previousPathUtils = getRuntime().PathUtils;
+    getRuntime().PathUtils = {
+      filename(path: string) {
+        return path.split(/[\\/]/).pop() || path;
+      },
+      parent(path: string) {
+        const index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+        if (index <= 0) return null;
+        const parent = path.slice(0, index);
+        return /^[A-Za-z]:$/.test(parent) ? `${parent}\\` : parent;
+      },
+    };
+    getRuntime().Zotero = {
+      File: {
+        pathToFileURI(path: string) {
+          return `file-uri:${path}`;
+        },
+        pathToFile(path: string) {
+          const index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+          const parent =
+            index > 0
+              ? path.slice(0, index).replace(/^([A-Za-z]:)$/, "$1\\")
+              : path;
+          return { parent: { path: parent } };
+        },
+      },
+    };
   });
 
   afterEach(function () {
     getRuntime().Zotero = previousZotero;
+    getRuntime().PathUtils = previousPathUtils;
   });
 
   it("returns null when no PDF attachment is available", async function () {
@@ -51,7 +80,7 @@ describe("ACP PDF context", function () {
       year: "2026",
       fileName: "paper.pdf",
       filePath: "/tmp/paper.pdf",
-      fileUri: "file:///tmp/paper.pdf",
+      fileUri: "file-uri:/tmp/paper.pdf",
       fileSize: null,
       cwd: "/tmp",
     });
@@ -125,6 +154,19 @@ describe("ACP PDF context", function () {
       getFilePathAsync: () => "/tmp/fallback.pdf",
     };
     getRuntime().Zotero = {
+      File: {
+        pathToFileURI(path: string) {
+          return `file-uri:${path}`;
+        },
+        pathToFile(path: string) {
+          const index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+          const parent =
+            index > 0
+              ? path.slice(0, index).replace(/^([A-Za-z]:)$/, "$1\\")
+              : path;
+          return { parent: { path: parent } };
+        },
+      },
       Items: {
         get(ids: number | number[]) {
           return Array.isArray(ids) && ids.includes(77) ? [pdfAttachment] : [];
@@ -158,6 +200,12 @@ function l10n(_id: string, fallback: string): string {
   return fallback;
 }
 
-function getRuntime(): typeof globalThis & { Zotero?: unknown } {
-  return globalThis as typeof globalThis & { Zotero?: unknown };
+function getRuntime(): typeof globalThis & {
+  PathUtils?: unknown;
+  Zotero?: unknown;
+} {
+  return globalThis as typeof globalThis & {
+    PathUtils?: unknown;
+    Zotero?: unknown;
+  };
 }

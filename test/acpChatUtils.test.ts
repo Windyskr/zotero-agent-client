@@ -10,18 +10,44 @@ import {
 } from "../src/modules/acpChatUtils";
 
 describe("ACP chat utilities", function () {
-  it("converts local paths to encoded file URIs", function () {
-    assert.equal(
-      pathToFileUri("/tmp/My Paper.pdf"),
-      "file:///tmp/My%20Paper.pdf",
-    );
+  beforeEach(function () {
+    getRuntime().PathUtils = {
+      filename(path: string) {
+        return path.split(/[\\/]/).pop() || path;
+      },
+      parent(path: string) {
+        const index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+        if (index <= 0) return null;
+        const parent = path.slice(0, index);
+        return /^[A-Za-z]:$/.test(parent) ? `${parent}\\` : parent;
+      },
+    };
+    getRuntime().Zotero = {
+      File: {
+        pathToFileURI(path: string) {
+          return `file-uri:${path}`;
+        },
+        pathToFile(path: string) {
+          const index = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+          const parent =
+            index > 0
+              ? path.slice(0, index).replace(/^([A-Za-z]:)$/, "$1\\")
+              : path;
+          return { parent: { path: parent } };
+        },
+      },
+    };
+  });
+
+  afterEach(function () {
+    getRuntime().PathUtils = undefined;
+    getRuntime().Zotero = undefined;
+  });
+
+  it("uses Zotero file APIs for file URIs", function () {
     assert.equal(
       pathToFileUri("C:\\Users\\ouyang\\My Paper.pdf"),
-      "file:///C:/Users/ouyang/My%20Paper.pdf",
-    );
-    assert.equal(
-      pathToFileUri("\\\\server\\share\\My Paper.pdf"),
-      "file://server/share/My%20Paper.pdf",
+      "file-uri:C:\\Users\\ouyang\\My Paper.pdf",
     );
   });
 
@@ -29,9 +55,9 @@ describe("ACP chat utilities", function () {
     assert.equal(basename("/tmp/paper.pdf"), "paper.pdf");
     assert.equal(basename("C:\\tmp\\paper.pdf"), "paper.pdf");
     assert.equal(dirname("/tmp/paper.pdf"), "/tmp");
-    assert.equal(dirname("C:\\tmp\\paper.pdf"), "C:/tmp");
-    assert.equal(dirname("C:\\paper.pdf"), "C:/");
-    assert.equal(dirname("\\\\server\\share\\paper.pdf"), "//server/share");
+    assert.equal(dirname("C:\\tmp\\paper.pdf"), "C:\\tmp");
+    assert.equal(dirname("C:\\paper.pdf"), "C:\\");
+    assert.equal(dirname("\\\\server\\share\\paper.pdf"), "\\\\server\\share");
   });
 
   it("infers known mime types from file names", function () {
@@ -126,3 +152,13 @@ describe("ACP chat utilities", function () {
     assert.equal(toMessage("plain"), "plain");
   });
 });
+
+function getRuntime(): typeof globalThis & {
+  PathUtils?: unknown;
+  Zotero?: unknown;
+} {
+  return globalThis as typeof globalThis & {
+    PathUtils?: unknown;
+    Zotero?: unknown;
+  };
+}

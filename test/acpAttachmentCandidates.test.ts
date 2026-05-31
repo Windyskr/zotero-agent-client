@@ -6,6 +6,26 @@ import {
 import type { ZoteroItemLike } from "../src/modules/acpZoteroItems";
 
 describe("ACP attachment candidates", function () {
+  beforeEach(function () {
+    getRuntime().PathUtils = {
+      filename(path: string) {
+        return path.split(/[\\/]/).pop() || path;
+      },
+    };
+    getRuntime().Zotero = {
+      File: {
+        pathToFileURI(path: string) {
+          return `file-uri:${path}`;
+        },
+      },
+    };
+  });
+
+  afterEach(function () {
+    getRuntime().PathUtils = undefined;
+    getRuntime().Zotero = undefined;
+  });
+
   it("builds attachment contexts with file URIs and inferred mime types", function () {
     assert.deepEqual(
       createAttachmentContext({
@@ -15,7 +35,7 @@ describe("ACP attachment candidates", function () {
       {
         fileName: "My Paper.pdf",
         filePath: "/tmp/My Paper.pdf",
-        fileUri: "file:///tmp/My%20Paper.pdf",
+        fileUri: "file-uri:/tmp/My Paper.pdf",
         fileSize: 42,
         mimeType: "application/pdf",
       },
@@ -33,7 +53,7 @@ describe("ACP attachment candidates", function () {
       {
         fileName: "renamed.bin",
         filePath: "/tmp/original.bin",
-        fileUri: "file:///tmp/original.bin",
+        fileUri: "file-uri:/tmp/original.bin",
         fileSize: null,
         mimeType: "text/plain",
       },
@@ -50,7 +70,7 @@ describe("ACP attachment candidates", function () {
       {
         fileName: "paper.pdf",
         filePath: "/tmp/paper.pdf",
-        fileUri: "file:///tmp/paper.pdf",
+        fileUri: "file-uri:/tmp/paper.pdf",
         fileSize: null,
         mimeType: "application/pdf",
       },
@@ -77,5 +97,15 @@ function item(title: string, parentItem?: ZoteroItemLike): ZoteroItemLike {
   return {
     parentItem,
     getField: (field) => (field === "title" ? title : ""),
+  };
+}
+
+function getRuntime(): typeof globalThis & {
+  PathUtils?: unknown;
+  Zotero?: unknown;
+} {
+  return globalThis as typeof globalThis & {
+    PathUtils?: unknown;
+    Zotero?: unknown;
   };
 }

@@ -4,7 +4,7 @@ import {
   makeLibraryAttachmentLabel,
 } from "./acpAttachmentCandidates";
 import type { AttachmentContext } from "./acpChatTypes";
-import { basename, statFile } from "./acpChatUtils";
+import { basename, fileExists, statFile } from "./acpChatUtils";
 import {
   getZoteroItem,
   getZoteroItems,
@@ -58,7 +58,7 @@ export async function pickLocalAttachment(
   );
   picker.appendFilters(picker.filterAll);
 
-  if (initialDirectory && (await IOUtils.exists(initialDirectory))) {
+  if (initialDirectory) {
     picker.displayDirectory = initialDirectory;
   }
 
@@ -141,7 +141,7 @@ async function getLocalAttachmentCandidates(
   for (const attachment of items) {
     if (!attachment?.isAttachment?.()) continue;
     const filePath = await getAttachmentFilePath(attachment);
-    if (!filePath || !(await IOUtils.exists(filePath))) continue;
+    if (!filePath || !(await fileExists(filePath))) continue;
     const fileName = attachment.attachmentFilename || basename(filePath);
     candidates.push({
       item: attachment,

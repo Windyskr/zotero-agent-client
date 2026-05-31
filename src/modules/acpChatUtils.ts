@@ -45,24 +45,11 @@ export function withTimeout<T>(
 }
 
 export function pathToFileUri(path: string): string {
-  const normalized = path.replace(/\\/g, "/");
-  const windowsDrive = normalized.match(/^([A-Za-z]:)(\/.*)?$/);
-  if (windowsDrive) {
-    return `file:///${windowsDrive[1]}${encodePathSegments(windowsDrive[2] ?? "")}`;
-  }
-  if (normalized.startsWith("//")) {
-    const [host = "", ...rest] = normalized.slice(2).split("/");
-    return `file://${encodeURIComponent(host)}/${rest.map(encodeURIComponent).join("/")}`;
-  }
-  return `file://${encodePathSegments(normalized)}`;
-}
-
-function encodePathSegments(path: string): string {
-  return path.split("/").map(encodeURIComponent).join("/");
+  return Zotero.File.pathToFileURI(path);
 }
 
 export function basename(path: string): string {
-  return path.split(/[\\/]/).pop() || path;
+  return PathUtils.filename(path);
 }
 
 export function inferMimeType(path: string): string | undefined {
@@ -93,11 +80,7 @@ export function inferMimeType(path: string): string | undefined {
 }
 
 export function dirname(path: string): string {
-  const normalized = path.replace(/\\/g, "/");
-  const index = normalized.lastIndexOf("/");
-  if (index <= 0) return "/";
-  const parent = normalized.slice(0, index);
-  return /^[A-Za-z]:$/.test(parent) ? `${parent}/` : parent;
+  return Zotero.File.pathToFile(path).parent.path;
 }
 
 export async function statFile(path: string): Promise<{ size: number } | null> {
@@ -110,6 +93,18 @@ export async function statFile(path: string): Promise<{ size: number } | null> {
     return typeof stat.size === "number" ? { size: stat.size } : null;
   } catch {
     return null;
+  }
+}
+
+export async function fileExists(path: string): Promise<boolean> {
+  try {
+    return await withTimeout(
+      IOUtils.exists(path),
+      STORE_IO_TIMEOUT_MS,
+      `Timed out checking file existence: ${path}`,
+    );
+  } catch {
+    return false;
   }
 }
 
