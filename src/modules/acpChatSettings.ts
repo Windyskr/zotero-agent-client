@@ -1,5 +1,5 @@
 import { config } from "../../package.json";
-import type { AgentProfile, Settings } from "./acpChatTypes";
+import type { AgentProfile, SendKeyMode, Settings } from "./acpChatTypes";
 import { getRuntimeHomeDir } from "./acpZoteroRuntime";
 
 const PREF_PREFIX = config.prefsPrefix;
@@ -43,8 +43,13 @@ export function getSettings(): Settings {
   return {
     agentProfiles,
     defaultAgent,
+    sendKeyMode: normalizeSendKeyMode(getString("sendKeyMode", "ctrlEnter")),
     sessionStorePath: getString("sessionStorePath", ""),
   };
+}
+
+export function normalizeSendKeyMode(value: string): SendKeyMode {
+  return value.trim() === "enter" ? "enter" : "ctrlEnter";
 }
 
 export function selectDefaultAgent(

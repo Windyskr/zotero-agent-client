@@ -9,6 +9,7 @@ declare namespace _ZoteroTypes {
     PluginPrefsMap: {
       "agentProfiles": string;
       "defaultAgent": string;
+      "sendKeyMode": string;
       "sessionStorePath": string;
     };
   }

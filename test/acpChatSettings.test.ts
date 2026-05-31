@@ -2,6 +2,7 @@ import { assert } from "chai";
 import {
   normalizeAgentProfiles,
   normalizeNpxArgs,
+  normalizeSendKeyMode,
   selectDefaultAgent,
 } from "../src/modules/acpChatSettings";
 
@@ -234,6 +235,13 @@ describe("ACP chat settings", function () {
     assert.equal(selectDefaultAgent(profiles, " claude "), "claude");
     assert.equal(selectDefaultAgent(profiles, "missing"), "codex");
     assert.equal(selectDefaultAgent([], " missing "), "missing");
+  });
+
+  it("normalizes send shortcut modes", function () {
+    assert.equal(normalizeSendKeyMode("enter"), "enter");
+    assert.equal(normalizeSendKeyMode(" enter "), "enter");
+    assert.equal(normalizeSendKeyMode("ctrlEnter"), "ctrlEnter");
+    assert.equal(normalizeSendKeyMode("bad"), "ctrlEnter");
   });
 
   it("deduplicates profiles by normalized id", function () {

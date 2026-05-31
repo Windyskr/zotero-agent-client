@@ -6,8 +6,10 @@ import type {
   ChatMessage,
   PdfContext,
   SessionConfigOption,
+  SendKeyMode,
   TopicSummary,
 } from "./acpChatTypes";
+import { getComposerKeyAction } from "./acpComposerKeys";
 import {
   attachmentTypeLabel,
   compactSelectStyle,
@@ -564,6 +566,7 @@ export function Composer({
   onRemoveAttachment,
   onSetAttachmentIncluded,
   pdf,
+  sendKeyMode,
 }: {
   attachment: AttachmentContext | null;
   disabled: boolean;
@@ -584,6 +587,7 @@ export function Composer({
   onRemoveAttachment: () => void;
   onSetAttachmentIncluded: (included: boolean) => void;
   pdf: PdfContext | null;
+  sendKeyMode: SendKeyMode;
 }) {
   const modelOption = pickConfigOption(configOptions, "model");
   const thoughtOption = pickConfigOption(configOptions, "thought_level");
@@ -594,7 +598,13 @@ export function Composer({
       onCloseAttachMenu();
       return;
     }
-    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+    const action = getComposerKeyAction(event, sendKeyMode);
+    if (action === "newline") {
+      event.preventDefault();
+      insertTextareaText(event.currentTarget, "\n", onInputChange);
+      return;
+    }
+    if (action === "send") {
       event.preventDefault();
       if (isRunning) {
         onPause();
@@ -858,4 +868,29 @@ export function Composer({
       </div>
     </div>
   );
+}
+
+function insertTextareaText(
+  textarea: HTMLTextAreaElement,
+  text: string,
+  onChange: (input: string) => void,
+): void {
+  const selectionStart = textarea.selectionStart ?? textarea.value.length;
+  const selectionEnd = textarea.selectionEnd ?? selectionStart;
+  const nextValue =
+    textarea.value.slice(0, selectionStart) +
+    text +
+    textarea.value.slice(selectionEnd);
+  onChange(nextValue);
+  const nextSelection = selectionStart + text.length;
+  const win = textarea.ownerDocument?.defaultView;
+  if (win?.requestAnimationFrame) {
+    win.requestAnimationFrame(() => {
+      textarea.selectionStart = nextSelection;
+      textarea.selectionEnd = nextSelection;
+    });
+    return;
+  }
+  textarea.selectionStart = nextSelection;
+  textarea.selectionEnd = nextSelection;
 }

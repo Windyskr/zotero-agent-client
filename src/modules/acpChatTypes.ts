@@ -11,8 +11,11 @@ export interface AgentProfile {
 export interface Settings {
   agentProfiles: AgentProfile[];
   defaultAgent: string;
+  sendKeyMode: SendKeyMode;
   sessionStorePath: string;
 }
+
+export type SendKeyMode = "ctrlEnter" | "enter";
 
 export interface SessionConfigOptionValue {
   value: string;

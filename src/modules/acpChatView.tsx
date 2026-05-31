@@ -449,6 +449,7 @@ export function AcpChatPanel({
             onRemoveAttachment={() => setAttachment(null)}
             onSetAttachmentIncluded={(included) => setIncludePdf(included)}
             pdf={pdf}
+            sendKeyMode={settings.sendKeyMode}
           />
         </>
       )}
