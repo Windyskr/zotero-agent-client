@@ -481,14 +481,63 @@ export const ACP_CHAT_STYLE = `
         margin: 0 auto 9px;
         width: 32px;
       }
+      .acpchat-empty-error {
+        border-color: rgba(179, 38, 30, 0.28);
+        text-align: left;
+      }
+      .acpchat-empty-error::before {
+        background: #fdeceb;
+        border-color: rgba(179, 38, 30, 0.24);
+        content: "!";
+        color: var(--acpchat-danger);
+        font-size: 18px;
+        font-weight: 800;
+        line-height: 30px;
+        text-align: center;
+      }
       .acpchat-empty-title {
         color: var(--acpchat-text);
+      }
+      .acpchat-empty-error .acpchat-empty-title {
+        color: var(--acpchat-danger);
       }
       .acpchat-empty-detail {
         color: var(--acpchat-muted);
         font-size: 11px;
         line-height: 1.4;
         margin-top: 3px;
+      }
+      .acpchat-inline-error {
+        background: #fff7f6;
+        border: 1px solid rgba(179, 38, 30, 0.24);
+        border-radius: 8px;
+        color: var(--acpchat-text);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 2px;
+        min-width: 0;
+        padding: 9px 10px;
+      }
+      .acpchat-inline-error-title {
+        color: var(--acpchat-danger);
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.3;
+      }
+      .acpchat-inline-error-log {
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(179, 38, 30, 0.16);
+        border-radius: 6px;
+        color: var(--acpchat-danger);
+        font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        margin: 0;
+        max-block-size: 150px;
+        min-width: 0;
+        overflow: auto;
+        padding: 6px 7px;
+        white-space: pre-wrap;
+        word-break: break-word;
       }
       .acpchat-message {
         contain: inline-size;

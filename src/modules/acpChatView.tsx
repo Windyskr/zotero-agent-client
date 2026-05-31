@@ -426,6 +426,7 @@ export function AcpChatPanel({
             l10n={l10n}
             messages={messages}
             renderMarkdown={renderMarkdown}
+            status={status}
           />
           <Composer
             attachment={attachment}

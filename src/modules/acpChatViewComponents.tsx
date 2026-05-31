@@ -316,11 +316,13 @@ export function MessageList({
   l10n,
   messages,
   renderMarkdown,
+  status,
 }: {
   hasPdf: boolean;
   l10n: Localize;
   messages: ChatMessage[];
   renderMarkdown: (text: string) => string;
+  status: ChatStatus;
 }) {
   const [nowMs, setNowMs] = useState(Date.now());
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -351,14 +353,23 @@ export function MessageList({
   );
   const turns = groupMessagesIntoTurns(visibleMessages);
   const showEmpty = hasPdf && turns.length === 0;
+  const errorText = status.kind === "error" ? status.text.trim() : "";
+  const lastVisibleMessage = visibleMessages.at(-1);
+  const isErrorAlreadyShown =
+    lastVisibleMessage?.status === "error" &&
+    lastVisibleMessage.text.trim() === errorText;
+  const showInlineError =
+    !!errorText && hasPdf && turns.length > 0 && !isErrorAlreadyShown;
 
   return (
     <div className="acpchat-messages" ref={listRef}>
       {!hasPdf ? (
-        <EmptyState kind="missing-pdf" l10n={l10n} />
+        <EmptyState kind="missing-pdf" l10n={l10n} status={status} />
       ) : (
         <>
-          {showEmpty && <EmptyState kind="no-history" l10n={l10n} />}
+          {showEmpty && (
+            <EmptyState kind="no-history" l10n={l10n} status={status} />
+          )}
           {turns.map((turn) => (
             <section className="acpchat-turn" key={turn.id}>
               {turn.userMessage && (
@@ -381,6 +392,9 @@ export function MessageList({
                 ))}
             </section>
           ))}
+          {showInlineError && (
+            <InlineErrorNotice l10n={l10n} text={errorText} />
+          )}
         </>
       )}
     </div>
@@ -470,10 +484,16 @@ function ToolMessageItem({
 function EmptyState({
   kind,
   l10n,
+  status,
 }: {
   kind: "missing-pdf" | "no-history";
   l10n: Localize;
+  status: ChatStatus;
 }) {
+  const errorText = status.kind === "error" ? status.text.trim() : "";
+  if (errorText) {
+    return <EmptyErrorState kind={kind} l10n={l10n} text={errorText} />;
+  }
   return (
     <div className="acpchat-empty">
       <div className="acpchat-empty-title">
@@ -493,6 +513,49 @@ function EmptyState({
             )}
       </div>
     </div>
+  );
+}
+
+function EmptyErrorState({
+  kind,
+  l10n,
+  text,
+}: {
+  kind: "missing-pdf" | "no-history";
+  l10n: Localize;
+  text: string;
+}) {
+  return (
+    <div className="acpchat-empty acpchat-empty-error">
+      <div className="acpchat-empty-title">
+        {kind === "missing-pdf"
+          ? l10n("acpchat-empty-error-missing-pdf-title", "Paper unavailable")
+          : l10n("acpchat-empty-error-title", "Agent is not ready")}
+      </div>
+      <div className="acpchat-empty-detail">
+        {kind === "missing-pdf"
+          ? l10n(
+              "acpchat-empty-error-missing-pdf-detail",
+              "The panel could not prepare the local PDF context. Fix the error below, then reopen the reader or choose another PDF.",
+            )
+          : l10n(
+              "acpchat-empty-error-detail",
+              "The chat cannot start until this ACP agent connects successfully.",
+            )}
+      </div>
+      <pre className="acpchat-inline-error-log">{text}</pre>
+    </div>
+  );
+}
+
+function InlineErrorNotice({ l10n, text }: { l10n: Localize; text: string }) {
+  return (
+    <section className="acpchat-inline-error" role="alert">
+      <div className="acpchat-inline-error-title">
+        {l10n("acpchat-inline-error-title", "The last agent action failed")}
+      </div>
+      <pre className="acpchat-inline-error-log">{text}</pre>
+    </section>
   );
 }
 

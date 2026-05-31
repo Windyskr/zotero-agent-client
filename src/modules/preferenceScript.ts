@@ -1,10 +1,118 @@
 import { config } from "../../package.json";
 import { normalizeSessionStorePath } from "./acpSessionStore";
 import { getZoteroProfileDir } from "./acpZoteroRuntime";
+import { getPref, setPref } from "../utils/prefs";
 
 export async function registerPrefsScripts(_window: Window) {
   ztoolkit.log("Zotero Agent Client preferences loaded", _window);
+  initializeSettingsForm(_window);
   bindClearCacheButton(_window);
+}
+
+type SettingsForm = {
+  defaultAgent: HTMLInputElement;
+  sendKeyMode: HTMLSelectElement;
+  sessionStorePath: HTMLInputElement;
+  agentProfiles: HTMLTextAreaElement;
+  saveButton: HTMLButtonElement;
+  saveStatus: Element | null;
+};
+
+function initializeSettingsForm(prefWindow: Window): void {
+  const form = getSettingsForm(prefWindow.document);
+  if (!form) return;
+
+  loadSettingsIntoForm(form);
+  bindSaveSettings(prefWindow, form);
+}
+
+function getSettingsForm(doc: Document): SettingsForm | null {
+  const root = `zotero-prefpane-${config.addonRef}`;
+  const defaultAgent = doc.getElementById(
+    `${root}-defaultAgent`,
+  ) as HTMLInputElement | null;
+  const sendKeyMode = doc.getElementById(
+    `${root}-sendKeyMode`,
+  ) as HTMLSelectElement | null;
+  const sessionStorePath = doc.getElementById(
+    `${root}-sessionStorePath`,
+  ) as HTMLInputElement | null;
+  const agentProfiles = doc.getElementById(
+    `${root}-agentProfiles`,
+  ) as HTMLTextAreaElement | null;
+  const saveButton = doc.getElementById(
+    `${root}-saveSettings`,
+  ) as HTMLButtonElement | null;
+  const saveStatus = doc.getElementById(`${root}-saveStatus`);
+  if (
+    !defaultAgent ||
+    !sendKeyMode ||
+    !sessionStorePath ||
+    !agentProfiles ||
+    !saveButton
+  ) {
+    return null;
+  }
+  return {
+    defaultAgent,
+    sendKeyMode,
+    sessionStorePath,
+    agentProfiles,
+    saveButton,
+    saveStatus,
+  };
+}
+
+function loadSettingsIntoForm(form: SettingsForm): void {
+  form.defaultAgent.value = getPref("defaultAgent") || "";
+  form.sendKeyMode.value = getPref("sendKeyMode") || "ctrlEnter";
+  form.sessionStorePath.value = getPref("sessionStorePath") || "";
+  form.agentProfiles.value = getPref("agentProfiles") || "";
+}
+
+function bindSaveSettings(prefWindow: Window, form: SettingsForm): void {
+  if (form.saveButton.dataset.acpchatBound === "true") return;
+
+  form.saveButton.dataset.acpchatBound = "true";
+  form.saveButton.addEventListener("click", () => {
+    void saveSettings(prefWindow.document, form);
+  });
+}
+
+async function saveSettings(
+  doc: Document,
+  form: SettingsForm,
+): Promise<void> {
+  form.saveButton.disabled = true;
+  await setStatus(form.saveStatus, doc, "pref-save-running", "Saving...");
+  try {
+    const sendKeyMode = normalizeSendKeyMode(form.sendKeyMode.value);
+    setPref("defaultAgent", form.defaultAgent.value.trim());
+    setPref("sendKeyMode", sendKeyMode);
+    setPref("sessionStorePath", form.sessionStorePath.value.trim());
+    setPref("agentProfiles", form.agentProfiles.value.trim());
+    form.sendKeyMode.value = sendKeyMode;
+    await setStatus(
+      form.saveStatus,
+      doc,
+      "pref-save-done",
+      "Settings saved. Reopen the reader tab for changes to take effect.",
+    );
+  } catch (error) {
+    Zotero.logError(error as Error);
+    await setStatus(
+      form.saveStatus,
+      doc,
+      "pref-save-failed",
+      "Settings could not be saved. Check the Zotero error log.",
+    );
+  } finally {
+    form.saveButton.disabled = false;
+  }
+}
+
+function normalizeSendKeyMode(value: string): string {
+  return value === "enter" ? "enter" : "ctrlEnter";
 }
 
 function bindClearCacheButton(prefWindow: Window): void {
