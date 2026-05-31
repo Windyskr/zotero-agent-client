@@ -7,7 +7,9 @@ export const ACP_CHAT_STYLE = `
         contain: inline-size;
         display: flex;
         flex-direction: column;
+        block-size: 100%;
         inline-size: 100%;
+        max-block-size: 100%;
         max-width: 100%;
         min-height: 0;
         min-width: 0;
@@ -43,7 +45,7 @@ export const ACP_CHAT_STYLE = `
         border: 1px solid var(--acpchat-border);
         border-radius: 8px;
         box-shadow: var(--acpchat-panel-shadow);
-        block-size: min(76vh, 860px);
+        block-size: max(100%, 320px);
         color: var(--acpchat-text);
         contain: inline-size;
         display: flex;
@@ -51,16 +53,31 @@ export const ACP_CHAT_STYLE = `
         font: 12px/1.42 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
         gap: 0;
         inline-size: 100%;
-        max-block-size: min(76vh, 860px);
+        max-block-size: 92vh;
         max-width: 100%;
         min-block-size: 320px;
         min-width: 0;
-        overflow-x: clip;
-        overflow-x: hidden;
-        overflow-y: hidden;
+        overflow: hidden;
         padding: 0;
         position: relative;
+        resize: vertical;
         width: 100%;
+      }
+      .acpchat-panel::after {
+        border-bottom: 2px solid var(--acpchat-muted);
+        border-right: 2px solid var(--acpchat-muted);
+        bottom: 5px;
+        content: "";
+        height: 8px;
+        opacity: 0.42;
+        pointer-events: none;
+        position: absolute;
+        right: 5px;
+        width: 8px;
+        z-index: 6;
+      }
+      .acpchat-panel:hover::after {
+        opacity: 0.72;
       }
       .acpchat-panel button,
       .acpchat-panel select,
@@ -1020,6 +1037,11 @@ export const ACP_CHAT_STYLE = `
       }
       .acpchat-loading-card,
       .acpchat-fatal {
+        align-items: flex-start;
+        block-size: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
         padding: 10px;
       }
       .acpchat-loading-title,
