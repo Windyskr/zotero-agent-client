@@ -4,6 +4,8 @@
 // @ts-nocheck
 export type FluentMessageId =
   | 'acpchat-attach-button-title'
+  | 'acpchat-attach-current-pdf-detail'
+  | 'acpchat-attach-current-pdf-title'
   | 'acpchat-attach-library-detail'
   | 'acpchat-attach-library-title'
   | 'acpchat-attach-local-detail'

@@ -714,6 +714,36 @@ export function Composer({
                 role="menu"
               >
                 <button
+                  aria-checked={includePdf}
+                  aria-label={l10n(
+                    "acpchat-attach-current-pdf-title",
+                    "Current PDF",
+                  )}
+                  className={`acpchat-attach-option${
+                    includePdf ? " is-active" : ""
+                  }`}
+                  disabled={isRunning || !pdf}
+                  onClick={() => {
+                    onSetAttachmentIncluded(true);
+                    onCloseAttachMenu();
+                  }}
+                  role="menuitemcheckbox"
+                  type="button"
+                >
+                  <span className="acpchat-attach-option-check">PDF</span>
+                  <span className="acpchat-attach-option-content">
+                    <span className="acpchat-attach-option-title">
+                      {l10n("acpchat-attach-current-pdf-title", "Current PDF")}
+                    </span>
+                    <span className="acpchat-attach-option-label">
+                      {l10n(
+                        "acpchat-attach-current-pdf-detail",
+                        "Attach this paper to the next prompt",
+                      )}
+                    </span>
+                  </span>
+                </button>
+                <button
                   aria-label={l10n("acpchat-attach-local-title", "Local file")}
                   className="acpchat-attach-option"
                   disabled={isRunning}

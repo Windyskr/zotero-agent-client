@@ -138,7 +138,9 @@ export function AcpChatPanel({
   const [status, setStatus] = useState(initialStatus);
   const [configOptions, setConfigOptions] = useState(initialConfigOptions);
   const [topics, setTopics] = useState(initialTopics);
-  const [includePdf, setIncludePdf] = useState(!!pdf);
+  const [includePdf, setIncludePdf] = useState(
+    !!pdf && !initialRecord?.messages.some(isNonSystemMessage),
+  );
   const [attachment, setAttachment] = useState<AttachmentContext | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
@@ -213,7 +215,10 @@ export function AcpChatPanel({
         agentId: nextAgentId,
         setConfigOptions,
         setTopics,
-        setRecord,
+        setRecord: (nextRecord) => {
+          setRecord(nextRecord);
+          setIncludePdf(shouldDefaultIncludePdf(pdf, nextRecord));
+        },
         setStatus,
       });
     } catch (error) {
@@ -229,6 +234,7 @@ export function AcpChatPanel({
 
   const handleTopicSelect = async (topicKey: string) => {
     if (isRunning || isHydrating) return;
+    setIncludePdf(false);
     setAttachment(null);
     setIsAttachMenuOpen(false);
     setIsHydrating(true);
@@ -238,7 +244,10 @@ export function AcpChatPanel({
         preferredTopicKey: topicKey,
         setConfigOptions,
         setTopics,
-        setRecord,
+        setRecord: (nextRecord) => {
+          setRecord(nextRecord);
+          setIncludePdf(shouldDefaultIncludePdf(pdf, nextRecord));
+        },
         setStatus,
       });
     } catch (error) {
@@ -323,6 +332,8 @@ export function AcpChatPanel({
         setStatus,
         text,
       });
+      setIncludePdf(false);
+      setAttachment(null);
     } catch (error) {
       setStatus({
         kind: "error",
@@ -443,6 +454,17 @@ export function AcpChatPanel({
       )}
     </section>
   );
+}
+
+function isNonSystemMessage(message: { role: string }): boolean {
+  return message.role !== "system";
+}
+
+function shouldDefaultIncludePdf(
+  pdf: PdfContext | null,
+  record: SessionRecord | null,
+): boolean {
+  return !!pdf && !!record && !record.messages.some(isNonSystemMessage);
 }
 
 export function AcpChatLoading({ l10n }: { l10n: Localize }) {

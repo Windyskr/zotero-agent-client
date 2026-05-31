@@ -748,10 +748,11 @@ export const ACP_CHAT_STYLE = `
         inline-size: 100%;
         max-width: 100%;
         min-width: 0;
-        overflow-x: clip;
-        overflow-x: hidden;
+        overflow: visible;
         padding: 9px;
+        position: relative;
         width: 100%;
+        z-index: 8;
       }
       .acpchat-composer-card {
         background: var(--acpchat-surface-elevated);
@@ -898,6 +899,7 @@ export const ACP_CHAT_STYLE = `
       .acpchat-attach-wrap {
         min-width: 0;
         position: relative;
+        z-index: 12;
       }
       .acpchat-attach-button {
         align-items: center;
@@ -936,7 +938,7 @@ export const ACP_CHAT_STYLE = `
         position: absolute;
         max-width: 220px;
         width: 220px;
-        z-index: 5;
+        z-index: 40;
       }
       .acpchat-attach-option {
         align-items: start;
