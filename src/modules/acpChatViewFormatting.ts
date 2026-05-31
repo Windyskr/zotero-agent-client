@@ -49,6 +49,8 @@ export function getMessageStatusLabel(
   switch (status) {
     case "streaming":
       return l10n("acpchat-message-status-streaming", "Writing");
+    case "failed":
+      return l10n("acpchat-message-status-failed", "Failed");
     case "error":
       return l10n("acpchat-message-status-error", "Error");
     case "cancelled":

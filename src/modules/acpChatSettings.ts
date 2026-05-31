@@ -1,5 +1,6 @@
 import { config } from "../../package.json";
 import type { AgentProfile, Settings } from "./acpChatTypes";
+import { getRuntimeHomeDir } from "./acpZoteroRuntime";
 
 const PREF_PREFIX = config.prefsPrefix;
 
@@ -15,23 +16,23 @@ const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
   {
     id: "codex",
     name: "Codex ACP",
-    command: "npx",
-    args: ["-y", "@zed-industries/codex-acp"],
+    command: "codex-acp",
+    args: [],
     env: {},
   },
   {
     id: "claude",
     name: "Claude ACP",
-    command: "npx",
-    args: ["-y", "@zed-industries/claude-agent-acp"],
+    command: "claude-agent-acp",
+    args: [],
     env: {},
   },
 ];
 
 export function getSettings(): Settings {
-  const configuredProfiles = normalizeAgentProfiles(
-    getJson("agentProfiles", []),
-  );
+  const rawProfiles = getJson("agentProfiles", []);
+  const configuredProfiles = normalizeAgentProfiles(rawProfiles);
+  persistAgentProfilesIfChanged(rawProfiles, configuredProfiles);
   const agentProfiles = configuredProfiles.length
     ? configuredProfiles
     : DEFAULT_AGENT_PROFILES;
@@ -77,7 +78,9 @@ export function normalizeAgentProfiles(profiles: unknown): AgentProfile[] {
   for (const profile of profiles) {
     if (!isAgentProfileInput(profile)) continue;
     try {
-      const normalizedProfile = normalizeAgentProfile(profile);
+      const normalizedProfile = normalizeAgentProfile(
+        migrateBundledNpxProfile(profile),
+      );
       if (seenIds.has(normalizedProfile.id)) continue;
       seenIds.add(normalizedProfile.id);
       normalized.push(normalizedProfile);
@@ -88,56 +91,99 @@ export function normalizeAgentProfiles(profiles: unknown): AgentProfile[] {
   return normalized;
 }
 
+function migrateBundledNpxProfile(
+  profile: AgentProfileInput,
+): AgentProfileInput {
+  const id = profile.id.trim();
+  const command = profile.command.trim().toLowerCase();
+  if (!isNpxCommand(command)) return profile;
+  const args = (profile.args ?? []).filter(
+    (arg): arg is string => typeof arg === "string" && !!arg.trim(),
+  );
+  const packageArg = args.find((arg) => !arg.trim().startsWith("-"))?.trim();
+  if (id === "codex" && packageArg === "@zed-industries/codex-acp") {
+    return {
+      id: profile.id,
+      name: profile.name,
+      command: preferredBundledCommand("codex-acp"),
+      args: [],
+      env: {},
+    };
+  }
+  if (id === "claude" && packageArg === "@zed-industries/claude-agent-acp") {
+    return {
+      id: profile.id,
+      name: profile.name,
+      command: preferredBundledCommand("claude-agent-acp"),
+      args: [],
+      env: {},
+    };
+  }
+  return profile;
+}
+
+function preferredBundledCommand(commandName: string): string {
+  return windowsVoltaCommand(commandName) || commandName;
+}
+
+function windowsVoltaCommand(commandName: string): string {
+  const home = getRuntimeHomeDir();
+  if (!/^[A-Za-z]:[\\/]/.test(home)) return "";
+  return `${home.replace(/\\/g, "/").replace(/\/$/, "")}/AppData/Local/Volta/bin/${commandName}.cmd`;
+}
+
 function normalizeAgentProfile(profile: AgentProfileInput): AgentProfile {
   const id = profile.id.trim();
   const name = profile.name.trim();
-  const command = normalizeNpxCommand(profile.command);
+  const command = normalizeAgentCommand(profile.command);
   if (!id || !name) {
     throw new Error("Agent profiles require non-empty id and name.");
   }
   if (!command) {
-    throw new Error(
-      `NPX-only mode: unsupported agent command "${profile.command}".`,
-    );
+    throw new Error(`Agent profile "${id}" requires a command.`);
   }
   const args = (profile.args ?? []).filter(
     (arg): arg is string => typeof arg === "string" && !!arg.trim(),
   );
-  const defaultPackage = defaultNpxPackageForProfile(id);
-  const normalizedArgs =
-    args.length > 0
-      ? normalizeNpxArgs(args)
-      : defaultPackage
-        ? ["-y", defaultPackage]
-        : [];
-  if (!normalizedArgs.find((arg) => !arg.startsWith("-"))) {
+  const normalizedArgs = normalizeAgentArgs(command, args);
+  if (
+    isNpxCommand(command) &&
+    !normalizedArgs.find((arg) => !arg.startsWith("-"))
+  ) {
     throw new Error(
-      `NPX-only mode: missing package name in args for agent "${id}".`,
+      `NPX mode: missing package name in args for agent "${id}".`,
     );
   }
   return {
     id,
     name,
-    command: "npx",
+    command,
     args: normalizedArgs,
     env: normalizeEnvironment(profile.env ?? {}),
   };
 }
 
-function normalizeNpxCommand(command: string): "npx" | null {
+function normalizeAgentCommand(command: string): string {
+  const trimmed = command.trim();
+  if (isNpxCommand(trimmed)) return "npx";
+  return trimmed;
+}
+
+function normalizeAgentArgs(command: string, args: string[]): string[] {
+  if (!isNpxCommand(command)) {
+    return args.map((arg) => arg.trim()).filter((arg) => !!arg);
+  }
+  return normalizeNpxArgs(args);
+}
+
+function isNpxCommand(command: string): boolean {
   const normalized = command.trim().toLowerCase();
-  return normalized === "npx" ||
+  return (
+    normalized === "npx" ||
     normalized === "npx.cmd" ||
     normalized === "npx.exe" ||
     normalized === "npx.bat"
-    ? "npx"
-    : null;
-}
-
-function defaultNpxPackageForProfile(profileId: string): string | null {
-  if (profileId === "codex") return "@zed-industries/codex-acp";
-  if (profileId === "claude") return "@zed-industries/claude-agent-acp";
-  return null;
+  );
 }
 
 export function normalizeNpxArgs(args: string[]): string[] {
@@ -157,6 +203,30 @@ function normalizeEnvironment(
     normalized[key] = value;
   }
   return normalized;
+}
+
+function persistAgentProfilesIfChanged(
+  rawProfiles: unknown,
+  profiles: AgentProfile[],
+): void {
+  if (!Array.isArray(rawProfiles) || !profiles.length) return;
+  const next = JSON.stringify(profiles);
+  if (safeJsonStringify(rawProfiles) === next) return;
+  try {
+    if (typeof Zotero !== "undefined" && Zotero.Prefs?.set) {
+      Zotero.Prefs.set(`${PREF_PREFIX}.agentProfiles`, next, true);
+    }
+  } catch (error) {
+    logSkippedAgentProfile(error);
+  }
+}
+
+function safeJsonStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "";
+  }
 }
 
 function isAgentProfileInput(profile: unknown): profile is AgentProfileInput {

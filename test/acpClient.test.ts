@@ -1,19 +1,27 @@
 import { assert } from "chai";
 import {
   AcpClient,
-  appendRecentStderr,
   closeAllClients,
-  defaultPathEntriesForHome,
+  getClient,
+  profileConnectionSignature,
+} from "../src/modules/acpClient";
+import {
   deriveHomeFromProfileDir,
   executableNameCandidates,
-  formatAcpExitError,
-  getClient,
+  isWindowsBatchCommand,
   isPathLikeCommand,
   joinPathEntries,
-  profileConnectionSignature,
-  shouldAddWindows126Hint,
+  normalizeProcessEnvironment,
+  prepareAcpProcessOptions,
+  quoteCmdArgumentList,
   splitPathEntries,
-} from "../src/modules/acpClient";
+} from "../src/modules/acpProcessLauncher";
+import {
+  appendRecentStderr,
+  AcpStdioTransport,
+  formatAcpExitError,
+  shouldAddWindows126Hint,
+} from "../src/modules/acpStdioTransport";
 import type { AgentProfile } from "../src/modules/acpChatTypes";
 
 describe("ACP client pool", function () {
@@ -119,16 +127,163 @@ describe("ACP client pool", function () {
     ]);
   });
 
-  it("includes common Windows Node and npm search paths", function () {
-    const entries = defaultPathEntriesForHome("C:\\Users\\ouyang", {
-      appData: "C:\\Users\\ouyang\\AppData\\Roaming",
-      programFiles: "C:\\Program Files",
-      programFilesX86: "C:\\Program Files (x86)",
-    });
+  it("wraps Windows batch commands through cmd.exe for subprocess launch", function () {
+    const { options, diagnosticCommand, strategy } = prepareAcpProcessOptions(
+      "C:\\Program Files\\nodejs\\npx.cmd",
+      ["-y", "@scope/agent"],
+      { ComSpec: "C:\\Windows\\System32\\cmd.exe" },
+    );
 
-    assert.include(entries, "C:\\Program Files\\nodejs");
-    assert.include(entries, "C:\\Program Files (x86)\\nodejs");
-    assert.include(entries, "C:\\Users\\ouyang\\AppData\\Roaming\\npm");
+    assert.equal(options.command, "C:\\Windows\\System32\\cmd.exe");
+    assert.deepEqual(options.arguments, [
+      "/d",
+      "/s",
+      "/c",
+      '"C:\\Program Files\\nodejs\\npx.cmd" -y @scope/agent',
+    ]);
+    assert.equal(
+      options.environment?.ComSpec,
+      "C:\\Windows\\System32\\cmd.exe",
+    );
+    assert.isTrue(options.environmentAppend);
+    assert.equal(diagnosticCommand, "C:\\Program Files\\nodejs\\npx.cmd");
+    assert.equal(strategy, "cmd");
+  });
+
+  it("adds launch diagnostics when subprocess creation fails", async function () {
+    const originalChromeUtils = (
+      globalThis as unknown as {
+        ChromeUtils?: unknown;
+      }
+    ).ChromeUtils;
+    (
+      globalThis as unknown as {
+        ChromeUtils?: unknown;
+      }
+    ).ChromeUtils = {
+      importESModule: () => ({
+        Subprocess: {
+          call: async () => {
+            throw {
+              message: "Failed to create process",
+              result: 2147500037,
+            };
+          },
+          pathSearch: async () => null,
+        },
+      }),
+    };
+    try {
+      await import("../src/modules/acpProcessLauncher").then(
+        async ({ launchAcpProcess }) => {
+          try {
+            await launchAcpProcess(
+              makeProfile({ command: "/usr/local/bin/custom", args: [] }),
+            );
+            assert.fail("Expected launchAcpProcess to fail");
+          } catch (error) {
+            const message = (error as Error).message;
+            assert.include(message, "Failed to start ACP process");
+            assert.include(message, "Failed to create process");
+            assert.include(message, '"result":2147500037');
+            assert.include(message, "Strategy: direct");
+            assert.include(message, "Command: /usr/local/bin/custom");
+            assert.include(message, "Arguments: (none)");
+          }
+        },
+      );
+    } finally {
+      (
+        globalThis as unknown as {
+          ChromeUtils?: unknown;
+        }
+      ).ChromeUtils = originalChromeUtils;
+    }
+  });
+
+  it("wraps Windows path commands through cmd.exe", function () {
+    const { options, diagnosticCommand } = prepareAcpProcessOptions(
+      "C:\\Program Files\\Volta\\npx.exe",
+      ["-y", "@scope/agent"],
+      { ComSpec: "C:\\Windows\\System32\\cmd.exe" },
+    );
+
+    assert.equal(options.command, "C:\\Windows\\System32\\cmd.exe");
+    assert.deepEqual(options.arguments, [
+      "/d",
+      "/s",
+      "/c",
+      '"C:\\Program Files\\Volta\\npx.exe" -y @scope/agent',
+    ]);
+    assert.equal(diagnosticCommand, "C:\\Program Files\\Volta\\npx.exe");
+  });
+
+  it("wraps extensionless Windows path commands through cmd.exe", function () {
+    const { options, diagnosticCommand } = prepareAcpProcessOptions(
+      "C:\\Users\\ouyang\\AppData\\Local\\Volta\\tools\\image\\npm\\11.15.0\\bin\\npx",
+      ["-y", "@scope/agent"],
+      { ComSpec: "C:\\Windows\\System32\\cmd.exe" },
+    );
+
+    assert.equal(options.command, "C:\\Windows\\System32\\cmd.exe");
+    assert.deepEqual(options.arguments, [
+      "/d",
+      "/s",
+      "/c",
+      "C:\\Users\\ouyang\\AppData\\Local\\Volta\\tools\\image\\npm\\11.15.0\\bin\\npx -y @scope/agent",
+    ]);
+    assert.equal(
+      diagnosticCommand,
+      "C:\\Users\\ouyang\\AppData\\Local\\Volta\\tools\\image\\npm\\11.15.0\\bin\\npx",
+    );
+  });
+
+  it("quotes cmd argument lists for paths and shell metacharacters", function () {
+    assert.equal(
+      quoteCmdArgumentList([
+        "C:\\Program Files\\Volta\\npx.exe",
+        "-y",
+        "@scope/agent",
+        "value with spaces",
+        "a&b",
+        "%PATH%",
+      ]),
+      '"C:\\Program Files\\Volta\\npx.exe" -y @scope/agent "value with spaces" "a^&b" "^%PATH^%"',
+    );
+  });
+
+  it("leaves non-batch commands unchanged for subprocess launch", function () {
+    const { options, strategy } = prepareAcpProcessOptions(
+      "/usr/local/bin/custom",
+      ["-y", "@scope/agent"],
+    );
+
+    assert.equal(options.command, "/usr/local/bin/custom");
+    assert.deepEqual(options.arguments, ["-y", "@scope/agent"]);
+    assert.isUndefined(options.environment);
+    assert.isUndefined(options.environmentAppend);
+    assert.equal(strategy, "direct");
+  });
+
+  it("detects only Windows cmd and bat wrappers as batch commands", function () {
+    assert.isTrue(isWindowsBatchCommand("npx.cmd"));
+    assert.isTrue(isWindowsBatchCommand("C:\\Tools\\run.BAT"));
+    assert.isFalse(isWindowsBatchCommand("npx.exe"));
+    assert.isFalse(isWindowsBatchCommand("/usr/local/bin/npx"));
+  });
+
+  it("passes only explicitly configured environment entries", function () {
+    assert.isUndefined(normalizeProcessEnvironment({}));
+    assert.deepEqual(
+      normalizeProcessEnvironment({
+        " API_KEY ": "secret",
+        PATH: "C:\\Existing",
+      }),
+      {
+        " API_KEY ": "secret",
+        PATH: "C:\\Existing",
+      },
+    );
   });
 
   it("keeps notifying update listeners after one listener fails", function () {
@@ -143,19 +298,52 @@ describe("ACP client pool", function () {
 
     (
       client as unknown as {
-        handleMessage(message: unknown): void;
+        notifyUpdateListeners(update: unknown): void;
       }
-    ).handleMessage({
-      jsonrpc: "2.0",
-      method: "session/update",
-      params: { ok: true },
-    });
+    ).notifyUpdateListeners({ ok: true });
 
     assert.deepEqual(updates, [{ ok: true }]);
   });
-});
 
-describe("ACP exit diagnostics", function () {
+  it("notifies listeners when the ACP transport closes unexpectedly", async function () {
+    let finishWait: (value: { exitCode: number }) => void = () => {};
+    const closed = new Promise<Error>((resolve) => {
+      const transport = new AcpStdioTransport(
+        {
+          stdin: {
+            write: () => {},
+            close: () => {},
+          },
+          stdout: {
+            readString: async () => "",
+          },
+          wait: () =>
+            new Promise<{ exitCode: number }>((resolveWait) => {
+              finishWait = resolveWait;
+            }),
+          kill: () => {},
+        },
+        {
+          command: "npx.cmd",
+          options: { command: "npx.cmd", arguments: [] },
+          diagnosticCommand: "npx.cmd",
+          environment: {},
+          resolvedCommand: "npx.cmd",
+          strategy: "direct",
+        },
+      );
+      transport.onClose(resolve);
+    });
+
+    finishWait({ exitCode: 0 });
+    const error = await closed;
+
+    assert.include(
+      error.message,
+      "ACP process exited before completing pending requests",
+    );
+  });
+
   it("keeps only the most recent stderr text", function () {
     const initial = "first line";
     const chunk = "x".repeat(4_100);
@@ -180,12 +368,13 @@ describe("ACP exit diagnostics", function () {
   it("adds a Windows-specific hint for npx exit code 126", function () {
     const error = formatAcpExitError({
       exitCode: 126,
-      recentStderr: "'claude' is not recognized as an internal or external command",
+      recentStderr:
+        "'claude' is not recognized as an internal or external command",
       resolvedCommand: "C:/Program Files/nodejs/npx.cmd",
     });
 
-    assert.include(error.message, "The default ACP profiles run through npx.");
-    assert.include(error.message, "restart Zotero so it picks up PATH changes");
+    assert.include(error.message, "npx or Windows command-wrapper failure");
+    assert.include(error.message, "restart Zotero after changing PATH");
   });
 
   it("does not add the Windows hint for other exit codes", function () {

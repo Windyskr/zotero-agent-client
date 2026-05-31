@@ -137,7 +137,8 @@ describe("ACP update reducer", function () {
 
   it("maps tool statuses to message statuses", function () {
     assert.equal(mapToolStatusToMessageStatus("pending"), "streaming");
-    assert.equal(mapToolStatusToMessageStatus("failed"), "error");
+    assert.equal(mapToolStatusToMessageStatus("failed"), "failed");
+    assert.equal(mapToolStatusToMessageStatus("error"), "error");
     assert.equal(mapToolStatusToMessageStatus("canceled"), "cancelled");
     assert.equal(mapToolStatusToMessageStatus("completed"), "done");
   });

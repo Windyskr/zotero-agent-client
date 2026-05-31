@@ -1,6 +1,6 @@
 pref(
   "agentProfiles",
-  '[{"id":"codex","name":"Codex ACP","command":"npx","args":["-y","@zed-industries/codex-acp"],"env":{}},{"id":"claude","name":"Claude ACP","command":"npx","args":["-y","@zed-industries/claude-agent-acp"],"env":{}}]',
+  '[{"id":"codex","name":"Codex ACP","command":"codex-acp","args":[],"env":{}},{"id":"claude","name":"Claude ACP","command":"claude-agent-acp","args":[],"env":{}}]',
 );
 pref("defaultAgent", "codex");
 pref("sessionStorePath", "");

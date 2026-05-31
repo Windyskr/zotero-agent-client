@@ -6,6 +6,16 @@ import {
 } from "../src/modules/acpChatSettings";
 
 describe("ACP chat settings", function () {
+  let previousZotero: unknown;
+
+  beforeEach(function () {
+    previousZotero = getRuntime().Zotero;
+  });
+
+  afterEach(function () {
+    getRuntime().Zotero = previousZotero;
+  });
+
   it("normalizes npx args to require non-interactive install", function () {
     assert.deepEqual(normalizeNpxArgs(["@scope/agent"]), [
       "-y",
@@ -22,8 +32,8 @@ describe("ACP chat settings", function () {
       {
         id: " codex ",
         name: " Codex ",
-        command: "npx",
-        args: [],
+        command: " codex-acp ",
+        args: [" --stdio "],
         env: {
           PATH: "/opt/homebrew/bin",
           " API_KEY ": "secret",
@@ -36,8 +46,8 @@ describe("ACP chat settings", function () {
       {
         id: "codex",
         name: "Codex",
-        command: "npx",
-        args: ["-y", "@zed-industries/codex-acp"],
+        command: "codex-acp",
+        args: ["--stdio"],
         env: {
           PATH: "/opt/homebrew/bin",
           API_KEY: "secret",
@@ -51,7 +61,7 @@ describe("ACP chat settings", function () {
       {
         id: "claude",
         name: "Claude",
-        command: "npx",
+        command: "claude-agent-acp",
       },
     ]);
 
@@ -59,8 +69,90 @@ describe("ACP chat settings", function () {
       {
         id: "claude",
         name: "Claude",
+        command: "claude-agent-acp",
+        args: [],
+        env: {},
+      },
+    ]);
+  });
+
+  it("drops npx profiles without an explicit package", function () {
+    const profiles = normalizeAgentProfiles([
+      {
+        id: "codex",
+        name: "Codex",
+        command: "npx",
+      },
+    ]);
+
+    assert.deepEqual(profiles, []);
+  });
+
+  it("migrates old bundled npx defaults to executable commands", function () {
+    const profiles = normalizeAgentProfiles([
+      {
+        id: "codex",
+        name: "Codex ACP",
+        command: "npx.exe",
+        args: ["-y", "@zed-industries/codex-acp"],
+        env: {
+          PATH: "C:\\Program Files\\Volta",
+        },
+      },
+      {
+        id: "claude",
+        name: "Claude ACP",
         command: "npx",
         args: ["-y", "@zed-industries/claude-agent-acp"],
+        env: {
+          PATH: "C:\\Program Files\\Volta",
+        },
+      },
+    ]);
+
+    assert.deepEqual(profiles, [
+      {
+        id: "codex",
+        name: "Codex ACP",
+        command: "codex-acp",
+        args: [],
+        env: {},
+      },
+      {
+        id: "claude",
+        name: "Claude ACP",
+        command: "claude-agent-acp",
+        args: [],
+        env: {},
+      },
+    ]);
+  });
+
+  it("uses the Windows Volta command path when migrating from a Zotero profile", function () {
+    getRuntime().Zotero = {
+      Profile: {
+        dir: "C:\\Users\\Administrator\\AppData\\Roaming\\Zotero\\Zotero\\Profiles\\piko4o23.default",
+      },
+    };
+
+    const profiles = normalizeAgentProfiles([
+      {
+        id: "codex",
+        name: "Codex ACP",
+        command: "npx.exe",
+        args: ["-y", "@zed-industries/codex-acp"],
+        env: {
+          PATH: "C:\\Program Files\\Volta",
+        },
+      },
+    ]);
+
+    assert.deepEqual(profiles, [
+      {
+        id: "codex",
+        name: "Codex ACP",
+        command: "C:/Users/Administrator/AppData/Local/Volta/bin/codex-acp.cmd",
+        args: [],
         env: {},
       },
     ]);
@@ -95,6 +187,27 @@ describe("ACP chat settings", function () {
         name: "Windows",
         command: "npx",
         args: ["-y", "@scope/windows-agent"],
+        env: {},
+      },
+    ]);
+  });
+
+  it("keeps non-npx commands and their arguments unchanged", function () {
+    const profiles = normalizeAgentProfiles([
+      {
+        id: "custom",
+        name: "Custom Agent",
+        command: " C:\\Tools\\agent.exe ",
+        args: [" --stdio ", "config.json"],
+      },
+    ]);
+
+    assert.deepEqual(profiles, [
+      {
+        id: "custom",
+        name: "Custom Agent",
+        command: "C:\\Tools\\agent.exe",
+        args: ["--stdio", "config.json"],
         env: {},
       },
     ]);
@@ -143,13 +256,13 @@ describe("ACP chat settings", function () {
     assert.deepEqual(profiles[0].args, ["-y", "@scope/first"]);
   });
 
-  it("drops malformed or unsupported profiles", function () {
+  it("drops malformed profiles", function () {
     const profiles = normalizeAgentProfiles([
       {
-        id: "bad-command",
+        id: "missing-command",
         name: "Bad",
-        command: "node",
-        args: ["agent.js"],
+        command: " ",
+        args: [],
         env: {},
       },
       {
@@ -171,3 +284,7 @@ describe("ACP chat settings", function () {
     assert.deepEqual(profiles, []);
   });
 });
+
+function getRuntime(): typeof globalThis & { Zotero?: unknown } {
+  return globalThis as typeof globalThis & { Zotero?: unknown };
+}

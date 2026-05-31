@@ -1,4 +1,5 @@
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
+import { version } from "../../package.json";
 import type {
   AgentProfile,
   AttachmentContext,
@@ -69,6 +70,37 @@ export function TopAgentBar({
   onToggleHistory: () => void;
 }) {
   const statusTitle = status.text || l10n("acpchat-status-ready", "Ready");
+  const statusKindLabel = getStatusKindLabel(status.kind, l10n);
+  const statusLog =
+    status.text ||
+    (status.kind === "success"
+      ? l10n("acpchat-status-connected", "Connected")
+      : statusKindLabel);
+  const copyDetail = [
+    `Version: ${version}`,
+    `Connection: ${statusKindLabel}`,
+    `Log: ${statusLog}`,
+  ].join("\n");
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
+  useEffect(() => {
+    setCopyState("idle");
+  }, [copyDetail]);
+
+  const handleCopyErrorDetails = async (
+    event: MouseEvent<HTMLButtonElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await copyTextToClipboard(copyDetail);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+  };
+
   return (
     <header className="acpchat-topbar">
       <div className="acpchat-topbar-main">
@@ -92,12 +124,42 @@ export function TopAgentBar({
               </option>
             )}
           </select>
-          <span
-            aria-label={statusTitle}
-            className={`acpchat-status-dot is-${status.kind}`}
-            role="status"
-            title={statusTitle}
-          />
+          <span className="acpchat-status-wrap" tabIndex={0}>
+            <span
+              aria-label={statusTitle}
+              className={`acpchat-status-dot is-${status.kind}`}
+              role="status"
+            />
+            <span className={`acpchat-status-popover is-${status.kind}`}>
+              <span className="acpchat-status-popover-head">
+                <span className="acpchat-status-popover-title">
+                  {l10n("acpchat-status-popover-title", "Agent status")}
+                </span>
+                <button
+                  className="acpchat-error-copy"
+                  onClick={handleCopyErrorDetails}
+                  title={l10n("acpchat-error-copy-button", "Copy details")}
+                  type="button"
+                >
+                  {copyState === "copied"
+                    ? l10n("acpchat-error-copy-copied", "Copied")
+                    : copyState === "failed"
+                      ? l10n("acpchat-error-copy-failed", "Failed")
+                      : l10n("acpchat-error-copy-button", "Copy")}
+                </button>
+              </span>
+              <span className="acpchat-status-meta">
+                <span>{l10n("acpchat-status-version", "Version")}</span>
+                <span>v{version}</span>
+                <span>{l10n("acpchat-status-connection", "Connection")}</span>
+                <span>{statusKindLabel}</span>
+              </span>
+              <span className="acpchat-status-log-label">
+                {l10n("acpchat-status-log", "Log")}
+              </span>
+              <span className="acpchat-status-log">{statusLog}</span>
+            </span>
+          </span>
         </div>
         <button
           aria-label={l10n("acpchat-history-button", "History")}
@@ -123,6 +185,61 @@ export function TopAgentBar({
         </button>
       </div>
     </header>
+  );
+}
+
+function getStatusKindLabel(statusKind: ChatStatus["kind"], l10n: Localize) {
+  switch (statusKind) {
+    case "busy":
+      return l10n("acpchat-status-kind-busy", "Running");
+    case "success":
+      return l10n("acpchat-status-kind-success", "Connected");
+    case "error":
+      return l10n("acpchat-status-kind-error", "Error");
+    case "muted":
+      return l10n("acpchat-status-kind-muted", "Idle");
+  }
+}
+
+async function copyTextToClipboard(text: string): Promise<void> {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const clipboardHelper = getClipboardHelper();
+  if (clipboardHelper) {
+    clipboardHelper.copyString(text);
+    return;
+  }
+  throw new Error("Clipboard is unavailable");
+}
+
+function getClipboardHelper(): { copyString(text: string): void } | null {
+  try {
+    const runtime = globalThis as typeof globalThis & {
+      Components?: {
+        classes?: Record<string, { getService(type: unknown): unknown }>;
+        interfaces?: Record<string, unknown>;
+      };
+    };
+    const helperClass =
+      runtime.Components?.classes?.["@mozilla.org/widget/clipboardhelper;1"];
+    const helperInterface = runtime.Components?.interfaces?.nsIClipboardHelper;
+    const helper = helperClass?.getService(helperInterface);
+    return isClipboardHelper(helper) ? helper : null;
+  } catch {
+    return null;
+  }
+}
+
+function isClipboardHelper(
+  value: unknown,
+): value is { copyString(text: string): void } {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    "copyString" in value &&
+    typeof (value as { copyString?: unknown }).copyString === "function"
   );
 }
 
@@ -314,7 +431,11 @@ function ToolMessageItem({
   message: ChatMessage;
 }) {
   return (
-    <div className="acpchat-tool-item">
+    <div
+      className={`acpchat-tool-item${
+        message.status ? ` acpchat-message-status-${message.status}` : ""
+      }`}
+    >
       <div className="acpchat-tool-item-meta">
         <span>{getRoleLabel(message.role, l10n)}</span>
         {formatMessageTime(message.createdAt) && (

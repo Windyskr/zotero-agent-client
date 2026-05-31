@@ -16,23 +16,75 @@ PDF 发送给你电脑上的 ACP Agent，让你在 Zotero 里直接向论文提�
 ## 使用前准备
 
 1. 安装 Zotero 8 或更新版本。
-2. 安装 Node.js，确保系统里可以使用 `npx`。
-3. 准备一个可用的 ACP Agent。插件默认提供两个配置：
-   - Codex ACP：`npx -y @zed-industries/codex-acp`
-   - Claude ACP：`npx -y @zed-industries/claude-agent-acp`
+2. 准备一个可用的 ACP Agent，并确保它的启动命令能被 Zotero 找到。
+3. 插件默认提供两个配置：
+   - Codex ACP：`codex-acp`
+   - Claude ACP：`claude-agent-acp`
 
 如果 agent 需要登录或授权，请先按照对应 agent 的说明在本机完成配置。插件不会
 替你登录第三方服务。
 
-### Windows / Linux 提示
+### 环境和命令
 
-- Windows：安装 Node.js 后请重启 Zotero，让 Zotero 能读取新的 `PATH` 和
-  `PATHEXT`。插件会自动尝试 `npx.cmd`、`npx.exe` 等 Windows 可执行后缀，
-  也会兜底查找常见的 Node/npm 目录，例如 `C:\Program Files\nodejs` 和
-  `%APPDATA%\npm`。
-- Linux：如果你用 `nvm`、`asdf` 或其他用户级 Node.js 管理器安装 Node.js，请
-  确认从桌面启动的 Zotero 也能访问同一个 `npx`。如果 agent 启动失败，可以在
-  `Agent profiles JSON` 的 `env` 里显式补充 `PATH`。
+插件只负责启动 ACP 进程，不会重写 `PATH`，也不会替 Codex 或 Claude 配置工具
+命令的运行环境。请先在一个普通终端中确认 agent 可以启动，例如：
+
+```sh
+codex-acp
+```
+
+### 安装 Codex ACP
+
+如果你已经安装了 Node.js/npm，可以用 npm 安装 Codex ACP：
+
+```sh
+npm install -g @zed-industries/codex-acp
+```
+
+安装后确认命令可用：
+
+```sh
+codex-acp --help
+```
+
+Windows 上，如果终端里能运行 `codex-acp`，但 Zotero 仍然提示找不到命令，说明
+Zotero 桌面进程没有继承你的终端 `PATH`。这时可以在 `Agent profiles JSON` 里把
+`command` 改成完整路径，例如：
+
+```json
+{
+  "id": "codex",
+  "name": "Codex ACP",
+  "command": "C:/Users/Administrator/AppData/Local/Volta/bin/codex-acp.cmd",
+  "args": [],
+  "env": {}
+}
+```
+
+官方也提供 release 包。你可以从 `zed-industries/codex-acp` 的 GitHub Releases
+下载适合当前系统架构的包，把其中的可执行文件放到 `PATH` 里的目录，或在
+`Agent profiles JSON` 的 `command` 中填写完整路径。
+
+如果你希望 Codex 的工具命令继承完整 shell 环境，请在 Codex 自己的
+`~/.codex/config.toml` 中配置，例如：
+
+```toml
+[shell_environment_policy]
+inherit = "all"
+```
+
+如果你想继续通过 npm 临时运行 agent，可以在 `Agent profiles JSON` 中显式配置
+`npx`，例如：
+
+```json
+{
+  "id": "codex",
+  "name": "Codex ACP",
+  "command": "npx",
+  "args": ["-y", "@zed-industries/codex-acp"],
+  "env": {}
+}
+```
 
 ## 安装插件
 
@@ -44,6 +96,32 @@ PDF 发送给你电脑上的 ACP Agent，让你在 Zotero 里直接向论文提�
 6. 按 Zotero 提示重启。
 
 安装完成后，你会在 Zotero 偏好设置里看到 `Zotero Agent Client`。
+
+## 本地开发启动
+
+开发时建议让 scaffold 启动 Zotero，并显式指定 Zotero 程序路径和当前测试
+profile。这样会使用现有配置文件，并把 `.scaffold/build/addon` 安装成临时插件：
+
+```powershell
+$env:ZOTERO_PLUGIN_ZOTERO_BIN_PATH = "C:\Program Files\Zotero\zotero.exe"
+$env:ZOTERO_PLUGIN_PROFILE_PATH = "C:\Users\Administrator\AppData\Roaming\Zotero\Zotero\Profiles\piko4o23.default"
+$env:ZOTERO_PLUGIN_DATA_DIR = "C:\Users\Administrator\AppData\Roaming\Zotero\Zotero"
+npm start
+```
+
+如果只需要手动启动同一个 Zotero profile，而不安装/热重载临时插件，可以运行：
+
+```powershell
+Start-Process -FilePath "C:\Program Files\Zotero\zotero.exe" -ArgumentList @(
+  "--purgecaches",
+  "no-remote",
+  "-profile",
+  "C:\Users\Administrator\AppData\Roaming\Zotero\Zotero\Profiles\piko4o23.default",
+  "--jsdebugger",
+  "-start-debugger-server",
+  "65188"
+)
+```
 
 ## 基础配置
 
@@ -68,15 +146,15 @@ codex
   {
     "id": "codex",
     "name": "Codex ACP",
-    "command": "npx",
-    "args": ["-y", "@zed-industries/codex-acp"],
+    "command": "codex-acp",
+    "args": [],
     "env": {}
   },
   {
     "id": "claude",
     "name": "Claude ACP",
-    "command": "npx",
-    "args": ["-y", "@zed-industries/claude-agent-acp"],
+    "command": "claude-agent-acp",
+    "args": [],
     "env": {}
   }
 ]
@@ -86,9 +164,9 @@ codex
 
 - `id`：内部使用的唯一标识，例如 `codex`。
 - `name`：显示在侧栏顶部的名字，例如 `Codex ACP`。
-- `command`：目前固定使用 `npx`。
-- `args`：agent 的 npx 包参数。
-- `env`：额外环境变量。普通用户通常可以保持 `{}`。
+- `command`：agent 启动命令，可以是 PATH 中的命令，也可以是可执行文件路径。
+- `args`：传给 agent 命令的参数。
+- `env`：额外环境变量。插件只会传递这里显式配置的值。
 
 ### Session store path
 
@@ -120,11 +198,10 @@ codex
 侧栏顶部 agent 名称右侧有一个小圆点，用来表示当前状态。
 
 - 灰色：空闲或普通状态。
-- 黄色闪动：agent 正在运行。
-- 绿色：本轮已完成。
+- 绿色：已连接、正在运行或本轮已完成。
 - 红色：出现错误。
 
-把鼠标移到小圆点上，可以查看具体状态说明。
+把鼠标移到小圆点上，可以查看版本、连接状态和最近日志。
 
 ## 附件菜单
 
@@ -163,13 +240,15 @@ PDF。
 
 ### agent 启动失败
 
-先确认 `npx` 可用。你可以在终端运行：
+先确认 agent 命令在普通终端中可用。默认 Codex 配置可以运行：
 
 ```sh
-npx -y @zed-industries/codex-acp
+codex-acp
 ```
 
-如果终端中也无法启动，请先修复 Node.js、npm、网络或对应 agent 的登录配置。
+如果终端中也无法启动，请先安装或修复对应 agent。
+如果你配置了自定义 `command`，请在普通终端中用同一组 `command` 和 `args` 先确认
+它能启动。
 
 ### 一直显示运行中
 

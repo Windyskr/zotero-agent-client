@@ -89,10 +89,10 @@ export const ACP_CHAT_STYLE = `
         display: flex;
         flex: 0 0 auto;
         flex-direction: column;
-        gap: 7px;
         min-width: 0;
         padding: 8px 9px;
-        z-index: 2;
+        overflow: visible;
+        z-index: 4;
       }
       .acpchat-topbar-main {
         align-items: center;
@@ -100,6 +100,23 @@ export const ACP_CHAT_STYLE = `
         gap: 7px;
         grid-template-columns: minmax(0, 1fr) auto auto;
         min-width: 0;
+      }
+      .acpchat-error-copy {
+        background: var(--acpchat-surface-elevated);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 999px;
+        color: var(--acpchat-muted);
+        cursor: pointer;
+        flex: 0 0 auto;
+        font-size: 10px;
+        font-weight: 650;
+        line-height: 1.2;
+        min-height: 20px;
+        padding: 2px 7px;
+      }
+      .acpchat-error-copy:hover {
+        background: var(--acpchat-hover);
+        color: var(--acpchat-text);
       }
       .acpchat-agent-select {
         width: 100%;
@@ -124,14 +141,120 @@ export const ACP_CHAT_STYLE = `
         min-width: 8px;
         width: 8px;
       }
+      .acpchat-status-wrap {
+        align-items: center;
+        display: inline-flex;
+        justify-self: end;
+        min-height: 24px;
+        outline: none;
+        position: relative;
+      }
+      .acpchat-status-wrap:focus-visible .acpchat-status-dot {
+        box-shadow: 0 0 0 3px var(--acpchat-focus);
+      }
+      .acpchat-status-popover {
+        background: var(--acpchat-surface-elevated);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 7px;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+        color: var(--acpchat-text);
+        display: flex;
+        flex-direction: column;
+        font-size: 10.5px;
+        gap: 7px;
+        line-height: 1.35;
+        max-width: min(320px, calc(100vw - 24px));
+        min-width: 220px;
+        opacity: 0;
+        padding: 8px;
+        pointer-events: none;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 8px);
+        transform: translateY(-2px);
+        transition:
+          opacity 120ms ease,
+          transform 120ms ease;
+        visibility: hidden;
+        z-index: 20;
+      }
+      .acpchat-status-wrap:hover .acpchat-status-popover,
+      .acpchat-status-wrap:focus-within .acpchat-status-popover {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+        visibility: visible;
+      }
+      .acpchat-status-popover::before {
+        background: transparent;
+        content: "";
+        height: 8px;
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: -8px;
+      }
+      .acpchat-status-popover-head {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+        min-width: 0;
+      }
+      .acpchat-status-popover-title {
+        font-size: 11px;
+        font-weight: 700;
+        min-width: 0;
+      }
+      .acpchat-status-meta {
+        display: grid;
+        gap: 3px 8px;
+        grid-template-columns: auto minmax(0, 1fr);
+        min-width: 0;
+      }
+      .acpchat-status-meta span:nth-child(odd),
+      .acpchat-status-log-label {
+        color: var(--acpchat-muted);
+        font-size: 10px;
+        font-weight: 650;
+      }
+      .acpchat-status-meta span:nth-child(even) {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .acpchat-status-log {
+        background: var(--acpchat-surface-muted);
+        border: 1px solid var(--acpchat-border);
+        border-radius: 6px;
+        color: var(--acpchat-text);
+        display: block;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 10px;
+        line-height: 1.35;
+        margin: 0;
+        max-height: 180px;
+        overflow: auto;
+        padding: 7px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .acpchat-status-popover.is-error {
+        border-color: rgba(179, 38, 30, 0.32);
+      }
+      .acpchat-status-popover.is-error .acpchat-status-log {
+        background: rgba(179, 38, 30, 0.06);
+        border-color: rgba(179, 38, 30, 0.18);
+        color: var(--acpchat-danger);
+      }
       .acpchat-status-dot.is-success {
         background: #22a06b;
         color: #22a06b;
       }
       .acpchat-status-dot.is-busy {
         animation: acpchat-pulse 1.2s ease-in-out infinite;
-        background: #c77d00;
-        color: #c77d00;
+        background: #22a06b;
+        color: #22a06b;
       }
       .acpchat-status-dot.is-error {
         background: var(--acpchat-danger);
@@ -531,6 +654,10 @@ export const ACP_CHAT_STYLE = `
       .acpchat-message-status-error .acpchat-message-state {
         background: #fdeceb;
         color: var(--acpchat-danger);
+      }
+      .acpchat-message-status-failed .acpchat-message-state {
+        background: var(--acpchat-surface-muted);
+        color: var(--acpchat-muted);
       }
       .acpchat-message-status-streaming .acpchat-message-state {
         background: #fff4dc;
@@ -984,8 +1111,8 @@ export const ACP_CHAT_STYLE = `
           color: #91d7a8;
         }
         .acpchat-status-dot.is-busy {
-          background: #f4c26b;
-          color: #f4c26b;
+          background: #91d7a8;
+          color: #91d7a8;
         }
         .acpchat-message-status-streaming .acpchat-message-state {
           background: rgba(214, 162, 67, 0.16);
@@ -997,6 +1124,27 @@ export const ACP_CHAT_STYLE = `
         }
         .acpchat-message-status-error .acpchat-message-state {
           background: rgba(255, 180, 171, 0.14);
+          color: var(--acpchat-danger);
+        }
+        .acpchat-message-status-failed .acpchat-message-state {
+          background: var(--acpchat-surface-muted);
+          color: var(--acpchat-muted);
+        }
+        .acpchat-error-copy {
+          background: var(--acpchat-surface-muted);
+        }
+        .acpchat-error-copy:hover {
+          background: var(--acpchat-hover);
+        }
+        .acpchat-status-popover {
+          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.36);
+        }
+        .acpchat-status-popover.is-error {
+          border-color: rgba(255, 180, 171, 0.28);
+        }
+        .acpchat-status-popover.is-error .acpchat-status-log {
+          background: rgba(255, 180, 171, 0.08);
+          border-color: rgba(255, 180, 171, 0.22);
           color: var(--acpchat-danger);
         }
       }

@@ -222,6 +222,7 @@ function normalizeStatus(status: unknown): MessageStatus | undefined {
   if (
     status === "streaming" ||
     status === "done" ||
+    status === "failed" ||
     status === "error" ||
     status === "cancelled"
   ) {

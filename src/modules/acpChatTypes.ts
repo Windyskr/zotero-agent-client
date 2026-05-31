@@ -35,7 +35,7 @@ export interface ChatMessage {
   role: ChatRole;
   text: string;
   createdAt: string;
-  status?: "streaming" | "done" | "error" | "cancelled";
+  status?: "streaming" | "done" | "failed" | "error" | "cancelled";
 }
 
 export interface SessionRecord {

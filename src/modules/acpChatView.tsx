@@ -183,8 +183,8 @@ export function AcpChatPanel({
           });
         }
         setStatus({
-          kind: "muted",
-          text: "",
+          kind: "success",
+          text: l10n("acpchat-status-connected", "Connected"),
         });
       })
       .catch((error) => {

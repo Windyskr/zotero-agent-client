@@ -37,6 +37,7 @@ export function applyAcpUpdate(
     update.sessionUpdate === "tool_call" ||
     update.sessionUpdate === "tool_call_update"
   ) {
+    void writeToolUpdateDebug(update);
     return upsertToolCallMessage(record, update, updatedAt);
   }
 
@@ -67,7 +68,10 @@ export function mapToolStatusToMessageStatus(status: unknown): MessageStatus {
   if (normalized === "in_progress" || normalized === "pending") {
     return "streaming";
   }
-  if (normalized === "failed" || normalized === "error") {
+  if (normalized === "failed") {
+    return "failed";
+  }
+  if (normalized === "error") {
     return "error";
   }
   if (normalized === "cancelled" || normalized === "canceled") {
@@ -146,4 +150,19 @@ function formatToolStatusLabel(status: unknown): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+async function writeToolUpdateDebug(update: Record<string, unknown>) {
+  try {
+    if (typeof Zotero === "undefined") return;
+    const zotero = Zotero as unknown as { Profile?: { dir?: unknown } };
+    const profileDir = String(zotero.Profile?.dir || "");
+    if (!profileDir || typeof IOUtils === "undefined") return;
+    await IOUtils.writeUTF8(
+      PathUtils.join(profileDir, "agentclient-tool-update-debug.json"),
+      JSON.stringify({ time: new Date().toISOString(), update }, null, 2),
+    );
+  } catch {
+    // Debug trace only; chat rendering must not depend on filesystem writes.
+  }
 }
