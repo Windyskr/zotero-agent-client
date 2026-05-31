@@ -103,7 +103,7 @@ describe("ACP chat settings", function () {
         id: "claude",
         name: "Claude ACP",
         command: "npx",
-        args: ["-y", "@zed-industries/claude-agent-acp"],
+        args: ["-y", "@agentclientprotocol/claude-agent-acp"],
         env: {
           PATH: "C:\\Program Files\\Volta",
         },
@@ -120,7 +120,7 @@ describe("ACP chat settings", function () {
       },
       {
         id: "claude",
-        name: "Claude ACP",
+        name: "Claude Code ACP",
         command: "claude-agent-acp",
         args: [],
         env: {},

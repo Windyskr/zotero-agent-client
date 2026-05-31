@@ -14,16 +14,16 @@ interface AgentProfileInput {
 
 const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
   {
-    id: "codex",
-    name: "Codex ACP",
-    command: "codex-acp",
+    id: "claude",
+    name: "Claude Code ACP",
+    command: "claude-agent-acp",
     args: [],
     env: {},
   },
   {
-    id: "claude",
-    name: "Claude ACP",
-    command: "claude-agent-acp",
+    id: "codex",
+    name: "Codex ACP",
+    command: "codex-acp",
     args: [],
     env: {},
   },
@@ -38,7 +38,7 @@ export function getSettings(): Settings {
     : DEFAULT_AGENT_PROFILES;
   const defaultAgent = selectDefaultAgent(
     agentProfiles,
-    getString("defaultAgent", "codex"),
+    getString("defaultAgent", "claude"),
   );
   return {
     agentProfiles,
@@ -110,10 +110,16 @@ function migrateBundledNpxProfile(
       env: {},
     };
   }
-  if (id === "claude" && packageArg === "@zed-industries/claude-agent-acp") {
+  if (
+    id === "claude" &&
+    (packageArg === "@zed-industries/claude-agent-acp" ||
+      packageArg === "@zed-industries/claude-code-acp" ||
+      packageArg === "@agentclientprotocol/claude-agent-acp")
+  ) {
     return {
       id: profile.id,
-      name: profile.name,
+      name:
+        profile.name.trim() === "Claude ACP" ? "Claude Code ACP" : profile.name,
       command: preferredBundledCommand("claude-agent-acp"),
       args: [],
       env: {},

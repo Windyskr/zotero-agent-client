@@ -163,8 +163,8 @@ export const ACP_CHAT_STYLE = `
         font-size: 10.5px;
         gap: 7px;
         line-height: 1.35;
-        max-width: min(320px, calc(100vw - 24px));
-        min-width: 220px;
+        max-width: min(360px, calc(100vw - 24px));
+        min-width: 240px;
         opacity: 0;
         padding: 8px;
         pointer-events: none;
@@ -221,7 +221,10 @@ export const ACP_CHAT_STYLE = `
       .acpchat-status-meta span:nth-child(even) {
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         min-width: 0;
+        overflow: hidden;
         overflow-wrap: anywhere;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .acpchat-status-log {
         background: var(--acpchat-surface-muted);

@@ -1,7 +1,15 @@
 pref-title = Zotero Agent Client
+pref-subtitle = 配置 Zotero 面板如何启动 ACP Agent、保存本地会话，以及清理开发期缓存。
+pref-section-basics = 基础设置
 pref-default-agent = 默认 Agent ID
+pref-default-agent-help = 必须匹配下方 Agent 配置 JSON 中的 id；新安装默认推荐 claude。
 pref-session-store = 会话存储路径
+pref-session-store-help = 留空时，会话保存在当前 Zotero profile 的 agentclient 目录中。
+pref-section-agents = Agent
 pref-agent-profiles = Agent 配置 JSON
+pref-agent-profiles-help = 默认 command 使用跨平台命令名；Windows 上如果 Zotero 看不到 PATH，可以填写 Volta bin 下的 .cmd 完整路径。
+pref-codex-install-label = 推荐安装命令
+pref-section-maintenance = 维护
 pref-clear-cache = 本地缓存
 pref-clear-cache-button = 清理 Agent Client 缓存
 pref-clear-cache-running = 正在清理缓存...

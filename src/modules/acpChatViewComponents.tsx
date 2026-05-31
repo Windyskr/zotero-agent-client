@@ -69,6 +69,13 @@ export function TopAgentBar({
   status: ChatStatus;
   onToggleHistory: () => void;
 }) {
+  const selectedAgent = agents.find((agent) => agent.id === agentId);
+  const selectedAgentName =
+    selectedAgent?.name ||
+    l10n("acpchat-no-agents-option", "No agents configured");
+  const selectedAgentCommand = selectedAgent
+    ? [selectedAgent.command, ...selectedAgent.args].join(" ").trim()
+    : "";
   const statusTitle = status.text || l10n("acpchat-status-ready", "Ready");
   const statusKindLabel = getStatusKindLabel(status.kind, l10n);
   const statusLog =
@@ -78,6 +85,8 @@ export function TopAgentBar({
       : statusKindLabel);
   const copyDetail = [
     `Version: ${version}`,
+    `Agent: ${selectedAgentName}`,
+    `Command: ${selectedAgentCommand || "(none)"}`,
     `Connection: ${statusKindLabel}`,
     `Log: ${statusLog}`,
   ].join("\n");
@@ -151,6 +160,10 @@ export function TopAgentBar({
               <span className="acpchat-status-meta">
                 <span>{l10n("acpchat-status-version", "Version")}</span>
                 <span>v{version}</span>
+                <span>{l10n("acpchat-status-agent", "Agent")}</span>
+                <span>{selectedAgentName}</span>
+                <span>{l10n("acpchat-status-command", "Command")}</span>
+                <span>{selectedAgentCommand || "-"}</span>
                 <span>{l10n("acpchat-status-connection", "Connection")}</span>
                 <span>{statusKindLabel}</span>
               </span>

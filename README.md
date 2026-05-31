@@ -5,37 +5,118 @@ PDF 发送给你电脑上的 ACP Agent，让你在 Zotero 里直接向论文提�
 思路。
 
 这个插件不提供云端服务，也不需要注册插件账号。它只负责连接你本机已经可运行
-的 ACP Agent，例如 Codex ACP 或 Claude ACP。
+的 ACP Agent。新用户推荐使用 Claude Code ACP；Codex ACP 也可以作为可选
+agent 配置。
 
 ## 适合谁使用
 
 - 你经常在 Zotero 里阅读论文，希望直接围绕当前 PDF 提问。
-- 你已经在本机配置了可用的 AI/Agent 工具。
-- 你希望聊天记录跟随论文保存在本地，而不是上传到插件服务器。
+- 你已经在本机配置了可用的 AI/Agent(Claude Code 或 Codex) 工具。
 
-## 使用前准备
+## 使用方法
 
-1. 安装 Zotero 8 或更新版本。
-2. 准备一个可用的 ACP Agent，并确保它的启动命令能被 Zotero 找到。
-3. 插件默认提供两个配置：
+1. 安装 Zotero 8 或更新版本
+2. 从 Release 页面下载插件最新版本 `.xpi` 文件，打开 Zotero，进入 `工具` -> `插件`，通过 `Install Add-on From File...` 安装插件。
+3. 准备一个可用的 ACP Agent，并确保它的启动命令能被 Zotero 找到。
+   也可以[让本地 agent 帮你完成配置](#让本地-agent-自动完成-acp-的配置)
+4. 插件默认提供两个配置，并默认使用 Claude Code ACP：
+   - Claude Code ACP：`claude-agent-acp`（推荐）
    - Codex ACP：`codex-acp`
-   - Claude ACP：`claude-agent-acp`
 
 如果 agent 需要登录或授权，请先按照对应 agent 的说明在本机完成配置。插件不会
 替你登录第三方服务。
 
-### 环境和命令
+### 让本地 Agent 自动完成 ACP 的配置
 
-插件只负责启动 ACP 进程，不会重写 `PATH`，也不会替 Codex 或 Claude 配置工具
-命令的运行环境。请先在一个普通终端中确认 agent 可以启动，例如：
+插件内置的默认配置是跨平台命令名，不会在安装时按 Windows/macOS/Linux 写死不同
+路径。这样适合已经配置好 `PATH` 的用户；如果 Zotero 看不到终端里的命令，可以让
+本地 agent 帮你安装、验证并写入当前系统的完整命令路径。
+
+可以把下面这段话交给你正在使用的本地 agent：
+（如果你要使用 Codex ACP，把下面的 `claude-agent-acp` 替换成 `codex-acp`）
+
+```text
+请帮我配置 Zotero Agent Client 使用 Claude Code ACP。
+
+要求：
+1. 检测当前操作系统、shell、Node.js/npm 是否可用。
+2. 确认 Claude Code CLI 已经可用，不要安装 @anthropic-ai/claude-code：
+   claude --version
+3. 安装或更新 Claude ACP wrapper：
+   npm install -g @agentclientprotocol/claude-agent-acp
+4. 验证以下命令可以在普通终端中运行：
+   claude-agent-acp --help
+5. 找到 claude-agent-acp 的真实可执行路径。Windows 上优先使用 .cmd 完整路径，例如 Volta 的 C:/Users/<user>/AppData/Local/Volta/bin/claude-agent-acp.cmd；macOS/Linux 可以使用 PATH 中的 claude-agent-acp 或真实绝对路径。
+6. 找到我正在使用的 Zotero profile。不要新建 profile。
+7. 关闭 Zotero 后，更新该 profile 中 Zotero Agent Client 的配置：
+   defaultAgent = claude
+   agentProfiles = [
+     {
+       "id": "claude",
+       "name": "Claude Code ACP",
+       "command": "<第 4 步找到的 claude-agent-acp 命令或完整路径>",
+       "args": [],
+       "env": {}
+     },
+     {
+       "id": "codex",
+       "name": "Codex ACP",
+       "command": "codex-acp",
+       "args": [],
+       "env": {}
+     }
+   ]
+8. 如果 profile 里存在 user.js 并且其中也写了 extensions.zotero.agentclient.agentProfiles 或 defaultAgent，也要同步更新，否则 Zotero 启动时会覆盖 prefs.js。
+9. 重新启动 Zotero，打开 Zotero Agent Client，确认默认 Agent 显示为 Claude Code ACP，并复制状态灯详情检查 command 是否正确。
+10. 如果启动失败，读取插件状态详情和本地日志，继续修复直到 claude-agent-acp 能启动。
+```
+
+### 手动安装
+
+<details>
+<summary>
+插件只负责启动 ACP 进程用来连接 Claude Code 或者 Codex ，不会对 Claude Code 或者 Codex 的配置进行修改。
+</summary>
+
+### 推荐：安装 Claude Code ACP
+
+推荐使用 Claude Code ACP。这里假设你已经安装并登录了 Claude Code CLI
+（`claude` 命令）；插件只需要额外安装 ACP wrapper：
 
 ```sh
-codex-acp
+npm install -g @agentclientprotocol/claude-agent-acp
+```
+
+安装后确认 Claude Code 和 ACP wrapper 都可用：
+
+```sh
+claude --version
+claude-agent-acp --help
+```
+
+如果 Claude Code 需要登录或授权，请先在终端里完成：
+
+```sh
+claude
+```
+
+Windows 上，如果终端里能运行 `claude-agent-acp`，但 Zotero 仍然提示找不到命令，说明
+Zotero 桌面进程没有继承你的终端 `PATH`。这时可以在 `Agent profiles JSON` 里把
+`command` 改成完整路径，例如：
+
+```json
+{
+  "id": "claude",
+  "name": "Claude Code ACP",
+  "command": "C:/Users/<user>/AppData/Local/Volta/bin/claude-agent-acp.cmd",
+  "args": [],
+  "env": {}
+}
 ```
 
 ### 安装 Codex ACP
 
-如果你已经安装了 Node.js/npm，可以用 npm 安装 Codex ACP：
+如果你想使用 Codex ACP，可以用 npm 安装：
 
 ```sh
 npm install -g @zed-industries/codex-acp
@@ -47,30 +128,16 @@ npm install -g @zed-industries/codex-acp
 codex-acp --help
 ```
 
-Windows 上，如果终端里能运行 `codex-acp`，但 Zotero 仍然提示找不到命令，说明
-Zotero 桌面进程没有继承你的终端 `PATH`。这时可以在 `Agent profiles JSON` 里把
-`command` 改成完整路径，例如：
+Windows 上同样建议在 Zotero 配置里使用完整路径，例如：
 
 ```json
 {
   "id": "codex",
   "name": "Codex ACP",
-  "command": "C:/Users/Administrator/AppData/Local/Volta/bin/codex-acp.cmd",
+  "command": "C:/Users/<user>/AppData/Local/Volta/bin/codex-acp.cmd",
   "args": [],
   "env": {}
 }
-```
-
-官方也提供 release 包。你可以从 `zed-industries/codex-acp` 的 GitHub Releases
-下载适合当前系统架构的包，把其中的可执行文件放到 `PATH` 里的目录，或在
-`Agent profiles JSON` 的 `command` 中填写完整路径。
-
-如果你希望 Codex 的工具命令继承完整 shell 环境，请在 Codex 自己的
-`~/.codex/config.toml` 中配置，例如：
-
-```toml
-[shell_environment_policy]
-inherit = "all"
 ```
 
 如果你想继续通过 npm 临时运行 agent，可以在 `Agent profiles JSON` 中显式配置
@@ -86,42 +153,7 @@ inherit = "all"
 }
 ```
 
-## 安装插件
-
-1. 在项目的 GitHub Releases 页面下载最新版本的 `.xpi` 文件。
-2. 打开 Zotero。
-3. 进入 `工具` -> `插件`。
-4. 点击右上角齿轮菜单，选择 `Install Add-on From File...`。
-5. 选择下载好的 `.xpi` 文件。
-6. 按 Zotero 提示重启。
-
-安装完成后，你会在 Zotero 偏好设置里看到 `Zotero Agent Client`。
-
-## 本地开发启动
-
-开发时建议让 scaffold 启动 Zotero，并显式指定 Zotero 程序路径和当前测试
-profile。这样会使用现有配置文件，并把 `.scaffold/build/addon` 安装成临时插件：
-
-```powershell
-$env:ZOTERO_PLUGIN_ZOTERO_BIN_PATH = "C:\Program Files\Zotero\zotero.exe"
-$env:ZOTERO_PLUGIN_PROFILE_PATH = "C:\Users\Administrator\AppData\Roaming\Zotero\Zotero\Profiles\piko4o23.default"
-$env:ZOTERO_PLUGIN_DATA_DIR = "C:\Users\Administrator\AppData\Roaming\Zotero\Zotero"
-npm start
-```
-
-如果只需要手动启动同一个 Zotero profile，而不安装/热重载临时插件，可以运行：
-
-```powershell
-Start-Process -FilePath "C:\Program Files\Zotero\zotero.exe" -ArgumentList @(
-  "--purgecaches",
-  "no-remote",
-  "-profile",
-  "C:\Users\Administrator\AppData\Roaming\Zotero\Zotero\Profiles\piko4o23.default",
-  "--jsdebugger",
-  "-start-debugger-server",
-  "65188"
-)
-```
+</details>
 
 ## 基础配置
 
@@ -132,7 +164,7 @@ Start-Process -FilePath "C:\Program Files\Zotero\zotero.exe" -ArgumentList @(
 默认使用的 agent ID。默认值是：
 
 ```text
-codex
+claude
 ```
 
 这个值必须对应 `Agent profiles JSON` 里的某个 `id`。
@@ -144,16 +176,16 @@ codex
 ```json
 [
   {
-    "id": "codex",
-    "name": "Codex ACP",
-    "command": "codex-acp",
+    "id": "claude",
+    "name": "Claude Code ACP",
+    "command": "claude-agent-acp",
     "args": [],
     "env": {}
   },
   {
-    "id": "claude",
-    "name": "Claude ACP",
-    "command": "claude-agent-acp",
+    "id": "codex",
+    "name": "Codex ACP",
+    "command": "codex-acp",
     "args": [],
     "env": {}
   }
@@ -162,16 +194,11 @@ codex
 
 说明：
 
-- `id`：内部使用的唯一标识，例如 `codex`。
-- `name`：显示在侧栏顶部的名字，例如 `Codex ACP`。
+- `id`：内部使用的唯一标识，例如 `claude`。
+- `name`：显示在侧栏顶部的名字，例如 `Claude Code ACP`。
 - `command`：agent 启动命令，可以是 PATH 中的命令，也可以是可执行文件路径。
 - `args`：传给 agent 命令的参数。
 - `env`：额外环境变量。插件只会传递这里显式配置的值。
-
-### Session store path
-
-聊天记录保存路径。普通用户建议留空，插件会自动把记录保存在 Zotero profile 下
-的默认位置。
 
 ## 开始使用
 
@@ -240,10 +267,10 @@ PDF。
 
 ### agent 启动失败
 
-先确认 agent 命令在普通终端中可用。默认 Codex 配置可以运行：
+先确认 agent 命令在普通终端中可用。默认 Claude Code ACP 配置可以运行：
 
 ```sh
-codex-acp
+claude-agent-acp
 ```
 
 如果终端中也无法启动，请先安装或修复对应 agent。
@@ -269,6 +296,32 @@ codex-acp
 - 插件会把当前 PDF 和你选择的附件传给本机 ACP Agent。
 - ACP Agent 后续如何处理内容，取决于你使用的 agent 和模型服务。
 - 聊天记录保存在本地。
+
+## 本地开发启动
+
+开发时建议让 scaffold 启动 Zotero，并显式指定 Zotero 程序路径和当前测试
+profile。这样会使用现有配置文件，并把 `.scaffold/build/addon` 安装成临时插件：
+
+```powershell
+$env:ZOTERO_PLUGIN_ZOTERO_BIN_PATH = "C:\Program Files\Zotero\zotero.exe"
+$env:ZOTERO_PLUGIN_PROFILE_PATH = "C:\Users\<user>\AppData\Roaming\Zotero\Zotero\Profiles\piko4o23.default"
+$env:ZOTERO_PLUGIN_DATA_DIR = "C:\Users\<user>\AppData\Roaming\Zotero\Zotero"
+npm start
+```
+
+如果只需要手动启动同一个 Zotero profile，而不安装/热重载临时插件，可以运行：
+
+```powershell
+Start-Process -FilePath "C:\Program Files\Zotero\zotero.exe" -ArgumentList @(
+  "--purgecaches",
+  "no-remote",
+  "-profile",
+  "C:\Users\<user>\AppData\Roaming\Zotero\Zotero\Profiles\piko4o23.default",
+  "--jsdebugger",
+  "-start-debugger-server",
+  "65188"
+)
+```
 
 ## 许可证
 

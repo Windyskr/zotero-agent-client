@@ -1,7 +1,15 @@
 pref-title = Zotero Agent Client
+pref-subtitle = Configure how the Zotero panel starts ACP agents, stores local sessions, and clears development cache.
+pref-section-basics = Basics
 pref-default-agent = Default agent ID
+pref-default-agent-help = Must match an id in Agent profiles JSON; new installs recommend claude.
 pref-session-store = Session store path
+pref-session-store-help = Leave empty to store sessions under the current Zotero profile's agentclient directory.
+pref-section-agents = Agent
 pref-agent-profiles = Agent profiles JSON
+pref-agent-profiles-help = Defaults use cross-platform command names. On Windows, use the full Volta .cmd path if Zotero cannot see PATH.
+pref-codex-install-label = Recommended install
+pref-section-maintenance = Maintenance
 pref-clear-cache = Local cache
 pref-clear-cache-button = Clear Agent Client cache
 pref-clear-cache-running = Clearing cache...

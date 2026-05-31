@@ -4,45 +4,89 @@
 <groupbox
   onload="Zotero.__addonInstance__.hooks.onPrefsEvent('load', { window })"
 >
-  <label><html:h2 data-l10n-id="pref-title"></html:h2></label>
-  <html:div class="acpchat-pref-grid">
-    <html:label
-      for="zotero-prefpane-__addonRef__-defaultAgent"
-      data-l10n-id="pref-default-agent"
-    />
-    <html:input
-      id="zotero-prefpane-__addonRef__-defaultAgent"
-      preference="defaultAgent"
-    />
-    <html:label
-      for="zotero-prefpane-__addonRef__-sessionStorePath"
-      data-l10n-id="pref-session-store"
-    />
-    <html:input
-      id="zotero-prefpane-__addonRef__-sessionStorePath"
-      preference="sessionStorePath"
-    />
-    <html:label
-      for="zotero-prefpane-__addonRef__-agentProfiles"
-      data-l10n-id="pref-agent-profiles"
-    />
-    <html:textarea
-      id="zotero-prefpane-__addonRef__-agentProfiles"
-      preference="agentProfiles"
-      rows="8"
-      spellcheck="false"
-    />
-    <html:label data-l10n-id="pref-clear-cache" />
-    <html:div class="acpchat-pref-cache">
-      <html:button
-        id="zotero-prefpane-__addonRef__-clearCache"
-        type="button"
-        data-l10n-id="pref-clear-cache-button"
-      ></html:button>
-      <html:span
-        id="zotero-prefpane-__addonRef__-clearCacheStatus"
-        class="acpchat-pref-cache-status"
-      ></html:span>
+  <label
+    ><html:h2 class="acpchat-pref-title" data-l10n-id="pref-title"></html:h2
+  ></label>
+  <html:p class="acpchat-pref-subtitle" data-l10n-id="pref-subtitle"></html:p>
+
+  <html:div class="acpchat-pref-section">
+    <html:h3 data-l10n-id="pref-section-basics"></html:h3>
+    <html:div class="acpchat-pref-grid">
+      <html:label
+        for="zotero-prefpane-__addonRef__-defaultAgent"
+        data-l10n-id="pref-default-agent"
+      />
+      <html:div class="acpchat-pref-field">
+        <html:input
+          id="zotero-prefpane-__addonRef__-defaultAgent"
+          preference="defaultAgent"
+        />
+        <html:p
+          class="acpchat-pref-helptext"
+          data-l10n-id="pref-default-agent-help"
+        ></html:p>
+      </html:div>
+
+      <html:label
+        for="zotero-prefpane-__addonRef__-sessionStorePath"
+        data-l10n-id="pref-session-store"
+      />
+      <html:div class="acpchat-pref-field">
+        <html:input
+          id="zotero-prefpane-__addonRef__-sessionStorePath"
+          preference="sessionStorePath"
+        />
+        <html:p
+          class="acpchat-pref-helptext"
+          data-l10n-id="pref-session-store-help"
+        ></html:p>
+      </html:div>
+    </html:div>
+  </html:div>
+
+  <html:div class="acpchat-pref-section">
+    <html:h3 data-l10n-id="pref-section-agents"></html:h3>
+    <html:div class="acpchat-pref-grid">
+      <html:label
+        for="zotero-prefpane-__addonRef__-agentProfiles"
+        data-l10n-id="pref-agent-profiles"
+      />
+      <html:div class="acpchat-pref-field">
+        <html:textarea
+          id="zotero-prefpane-__addonRef__-agentProfiles"
+          preference="agentProfiles"
+          rows="9"
+          spellcheck="false"
+        />
+        <html:p
+          class="acpchat-pref-helptext"
+          data-l10n-id="pref-agent-profiles-help"
+        ></html:p>
+        <html:div class="acpchat-pref-command">
+          <html:span data-l10n-id="pref-codex-install-label"></html:span>
+          <html:code
+            >npm install -g @agentclientprotocol/claude-agent-acp</html:code
+          >
+        </html:div>
+      </html:div>
+    </html:div>
+  </html:div>
+
+  <html:div class="acpchat-pref-section">
+    <html:h3 data-l10n-id="pref-section-maintenance"></html:h3>
+    <html:div class="acpchat-pref-grid">
+      <html:label data-l10n-id="pref-clear-cache" />
+      <html:div class="acpchat-pref-cache">
+        <html:button
+          id="zotero-prefpane-__addonRef__-clearCache"
+          type="button"
+          data-l10n-id="pref-clear-cache-button"
+        ></html:button>
+        <html:span
+          id="zotero-prefpane-__addonRef__-clearCacheStatus"
+          class="acpchat-pref-cache-status"
+        ></html:span>
+      </html:div>
     </html:div>
   </html:div>
 </groupbox>
