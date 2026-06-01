@@ -79,10 +79,7 @@ function bindSaveSettings(prefWindow: Window, form: SettingsForm): void {
   });
 }
 
-async function saveSettings(
-  doc: Document,
-  form: SettingsForm,
-): Promise<void> {
+async function saveSettings(doc: Document, form: SettingsForm): Promise<void> {
   form.saveButton.disabled = true;
   await setStatus(form.saveStatus, doc, "pref-save-running", "Saving...");
   try {
