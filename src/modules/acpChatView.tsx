@@ -389,9 +389,11 @@ export function AcpChatPanel({
   return (
     <section
       className={panelClassName}
-      style={{
-        "--acpchat-message-font-size": `${settings.chatFontSizePx}px`,
-      } as React.CSSProperties}
+      style={
+        {
+          "--acpchat-message-font-size": `${settings.chatFontSizePx}px`,
+        } as React.CSSProperties
+      }
     >
       <TopAgentBar
         agentId={agentId}
