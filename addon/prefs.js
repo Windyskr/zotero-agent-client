@@ -4,4 +4,6 @@ pref(
 );
 pref("defaultAgent", "claude");
 pref("sendKeyMode", "ctrlEnter");
+pref("chatFontSizePx", "12.5");
+pref("toolDetailsDefaultOpen", "true");
 pref("sessionStorePath", "");

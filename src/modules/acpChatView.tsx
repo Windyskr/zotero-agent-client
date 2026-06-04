@@ -327,13 +327,18 @@ export function AcpChatPanel({
       return;
     }
 
+    const submittedAttachment = attachment;
+    const submittedIncludePdf = !!pdf && includePdf;
+
     setIsRunning(true);
     setInput("");
+    setIncludePdf(false);
+    setAttachment(null);
     try {
       await onSend({
         agentId,
-        attachment,
-        includePdf: !!pdf && includePdf,
+        attachment: submittedAttachment,
+        includePdf: submittedIncludePdf,
         record,
         setConfigOptions,
         setTopics,
@@ -341,8 +346,6 @@ export function AcpChatPanel({
         setStatus,
         text,
       });
-      setIncludePdf(false);
-      setAttachment(null);
     } catch (error) {
       setStatus({
         kind: "error",
@@ -384,7 +387,12 @@ export function AcpChatPanel({
     .join(" ");
 
   return (
-    <section className={panelClassName}>
+    <section
+      className={panelClassName}
+      style={{
+        "--acpchat-message-font-size": `${settings.chatFontSizePx}px`,
+      } as React.CSSProperties}
+    >
       <TopAgentBar
         agentId={agentId}
         agents={settings.agentProfiles}
@@ -438,6 +446,7 @@ export function AcpChatPanel({
             renderMarkdown={renderMarkdown}
             scrollResetKey={record?.key ?? ""}
             status={status}
+            toolDetailsDefaultOpen={settings.toolDetailsDefaultOpen}
           />
           <Composer
             attachment={attachment}

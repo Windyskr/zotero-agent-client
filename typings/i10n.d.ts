@@ -87,6 +87,8 @@ export type FluentMessageId =
   | 'acpchat-topic-untitled'
   | 'pref-agent-profiles'
   | 'pref-agent-profiles-help'
+  | 'pref-chat-font-size'
+  | 'pref-chat-font-size-help'
   | 'pref-clear-cache'
   | 'pref-clear-cache-button'
   | 'pref-clear-cache-done'
@@ -112,4 +114,8 @@ export type FluentMessageId =
   | 'pref-session-store-help'
   | 'pref-subtitle'
   | 'pref-title'
+  | 'pref-tool-details-default-open'
+  | 'pref-tool-details-default-open-false'
+  | 'pref-tool-details-default-open-help'
+  | 'pref-tool-details-default-open-true'
   | 'prefs-title';

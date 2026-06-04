@@ -1,8 +1,10 @@
 import { assert } from "chai";
 import {
   normalizeAgentProfiles,
+  normalizeChatFontSizePx,
   normalizeNpxArgs,
   normalizeSendKeyMode,
+  normalizeToolDetailsDefaultOpen,
   selectDefaultAgent,
 } from "../src/modules/acpChatSettings";
 
@@ -242,6 +244,21 @@ describe("ACP chat settings", function () {
     assert.equal(normalizeSendKeyMode(" enter "), "enter");
     assert.equal(normalizeSendKeyMode("ctrlEnter"), "ctrlEnter");
     assert.equal(normalizeSendKeyMode("bad"), "ctrlEnter");
+  });
+
+  it("normalizes chat font size", function () {
+    assert.equal(normalizeChatFontSizePx("12.5"), 12.5);
+    assert.equal(normalizeChatFontSizePx(" 10 "), 10);
+    assert.equal(normalizeChatFontSizePx("9"), 10);
+    assert.equal(normalizeChatFontSizePx("20"), 18);
+    assert.equal(normalizeChatFontSizePx("bad"), 12.5);
+  });
+
+  it("normalizes tool details default open", function () {
+    assert.isTrue(normalizeToolDetailsDefaultOpen("true"));
+    assert.isTrue(normalizeToolDetailsDefaultOpen(" TRUE "));
+    assert.isFalse(normalizeToolDetailsDefaultOpen("false"));
+    assert.isTrue(normalizeToolDetailsDefaultOpen("bad"));
   });
 
   it("deduplicates profiles by normalized id", function () {

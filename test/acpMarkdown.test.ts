@@ -46,4 +46,41 @@ describe("ACP markdown rendering", function () {
     assert.notInclude(html, 'href="javascript:');
     assert.notInclude(html, 'href="file://');
   });
+
+  it("renders bracket-delimited display math", function () {
+    const html = createMarkdownRenderer().render(
+      "\\[X = \\{x_1, x_2, \\ldots, x_n\\}\\]",
+    );
+
+    assert.include(html, "<math");
+    assert.include(html, 'display="block"');
+    assert.include(html, "<msub>");
+    assert.include(html, "x_1");
+  });
+
+  it("renders bracket-delimited inline math", function () {
+    const html = createMarkdownRenderer().render("Inline \\(x_1\\) value");
+
+    assert.include(html, "<math");
+    assert.include(html, "<msub>");
+    assert.include(html, "x_1");
+  });
+
+  it("renders dollar-delimited inline and display math", function () {
+    const html = createMarkdownRenderer().render(
+      "Inline $x_1$\n\n$$F1 = \\frac{2PR}{P + R}$$",
+    );
+
+    assert.include(html, "<math");
+    assert.include(html, "<msub>");
+    assert.include(html, "<mfrac>");
+    assert.include(html, 'display="block"');
+  });
+
+  it("does not throw on invalid math", function () {
+    const html = createMarkdownRenderer().render("$\\notacommand{$");
+
+    assert.isString(html);
+    assert.isNotEmpty(html);
+  });
 });

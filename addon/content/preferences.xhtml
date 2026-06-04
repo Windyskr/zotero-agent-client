@@ -46,6 +46,45 @@
       </html:div>
 
       <html:label
+        for="zotero-prefpane-__addonRef__-chatFontSizePx"
+        data-l10n-id="pref-chat-font-size"
+      />
+      <html:div class="acpchat-pref-field">
+        <html:input
+          id="zotero-prefpane-__addonRef__-chatFontSizePx"
+          type="number"
+          min="10"
+          max="18"
+          step="0.5"
+        />
+        <html:p
+          class="acpchat-pref-helptext"
+          data-l10n-id="pref-chat-font-size-help"
+        ></html:p>
+      </html:div>
+
+      <html:label
+        for="zotero-prefpane-__addonRef__-toolDetailsDefaultOpen"
+        data-l10n-id="pref-tool-details-default-open"
+      />
+      <html:div class="acpchat-pref-field">
+        <html:select id="zotero-prefpane-__addonRef__-toolDetailsDefaultOpen">
+          <html:option
+            value="true"
+            data-l10n-id="pref-tool-details-default-open-true"
+          ></html:option>
+          <html:option
+            value="false"
+            data-l10n-id="pref-tool-details-default-open-false"
+          ></html:option>
+        </html:select>
+        <html:p
+          class="acpchat-pref-helptext"
+          data-l10n-id="pref-tool-details-default-open-help"
+        ></html:p>
+      </html:div>
+
+      <html:label
         for="zotero-prefpane-__addonRef__-sessionStorePath"
         data-l10n-id="pref-session-store"
       />

@@ -1,4 +1,6 @@
 import MarkdownIt from "markdown-it";
+import katex from "katex";
+import texmath from "markdown-it-texmath";
 
 const SAFE_LINK_PROTOCOLS = new Set(["http", "https", "mailto"]);
 
@@ -9,6 +11,15 @@ export function createMarkdownRenderer(): MarkdownIt {
     linkify: true,
     typographer: false,
     xhtmlOut: true,
+  });
+  markdown.use(texmath, {
+    delimiters: ["dollars", "brackets"],
+    engine: katex,
+    katexOptions: {
+      output: "mathml",
+      throwOnError: false,
+      trust: false,
+    },
   });
   markdown.validateLink = isSafeMarkdownLink;
 

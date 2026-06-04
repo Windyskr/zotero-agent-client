@@ -10,6 +10,8 @@ declare namespace _ZoteroTypes {
       "agentProfiles": string;
       "defaultAgent": string;
       "sendKeyMode": string;
+      "chatFontSizePx": string;
+      "toolDetailsDefaultOpen": string;
       "sessionStorePath": string;
     };
   }

@@ -10,9 +10,11 @@ export interface AgentProfile {
 
 export interface Settings {
   agentProfiles: AgentProfile[];
+  chatFontSizePx: number;
   defaultAgent: string;
   sendKeyMode: SendKeyMode;
   sessionStorePath: string;
+  toolDetailsDefaultOpen: boolean;
 }
 
 export type SendKeyMode = "ctrlEnter" | "enter";

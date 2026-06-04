@@ -53,7 +53,6 @@ export const ACP_CHAT_STYLE = `
         font: 12px/1.42 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
         gap: 0;
         inline-size: 100%;
-        max-block-size: 92vh;
         max-width: 100%;
         min-block-size: 320px;
         min-width: 0;
@@ -581,12 +580,24 @@ export const ACP_CHAT_STYLE = `
         align-items: center;
         color: var(--acpchat-muted);
         display: flex;
-        flex-wrap: wrap;
-        font-size: 10px;
+        flex-wrap: nowrap;
+        font-size: calc(var(--acpchat-message-font-size, 12.5px) * 0.8);
+        gap: 5px;
         line-height: 1.25;
+        min-width: 0;
+        width: 100%;
       }
-      .acpchat-message-meta span + span {
-        margin-left: 5px;
+      .acpchat-message-role {
+        flex: 0 0 auto;
+      }
+      .acpchat-message-processed {
+        color: var(--acpchat-muted);
+        flex: 0 0 auto;
+        font-size: calc(var(--acpchat-message-font-size, 12.5px) * 0.76);
+        font-weight: 600;
+        margin-left: auto;
+        text-align: right;
+        white-space: nowrap;
       }
       .acpchat-message-copy {
         -moz-user-select: none;
@@ -618,7 +629,7 @@ export const ACP_CHAT_STYLE = `
         border: 1px solid transparent;
         border-radius: 8px;
         box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
-        font-size: 12.5px;
+        font-size: var(--acpchat-message-font-size, 12.5px);
         max-width: 100%;
         min-width: 0;
         overflow-wrap: anywhere;
@@ -653,7 +664,7 @@ export const ACP_CHAT_STYLE = `
         background: transparent;
         border-color: transparent;
         color: var(--acpchat-muted);
-        font-size: 11px;
+        font-size: calc(var(--acpchat-message-font-size, 12.5px) * 0.88);
         padding: 2px 0;
       }
       .acpchat-turn-tools {
@@ -661,7 +672,7 @@ export const ACP_CHAT_STYLE = `
         border: 1px solid var(--acpchat-border);
         border-radius: 7px;
         color: var(--acpchat-muted);
-        font-size: 10px;
+        font-size: calc(var(--acpchat-message-font-size, 12.5px) * 0.8);
         min-width: 0;
       }
       .acpchat-turn-tools-summary-only {
@@ -810,6 +821,25 @@ export const ACP_CHAT_STYLE = `
         color: var(--acpchat-muted);
         margin: 0.5em 0;
         padding-left: 7px;
+      }
+      .acpchat-message-body eq {
+        display: inline-block;
+        max-inline-size: 100%;
+        overflow-x: auto;
+        vertical-align: -0.15em;
+      }
+      .acpchat-message-body eqn {
+        display: block;
+        inline-size: 100%;
+        margin: 0.55em 0;
+        overflow-x: auto;
+        text-align: center;
+      }
+      .acpchat-message-body section {
+        margin: 0.55em 0;
+      }
+      .acpchat-message-body .katex math {
+        max-inline-size: 100%;
       }
       .acpchat-message-body table {
         border-collapse: collapse;
@@ -1025,6 +1055,39 @@ export const ACP_CHAT_STYLE = `
         max-width: 220px;
         width: 220px;
         z-index: 40;
+      }
+      .acpchat-attach-menu-head {
+        align-items: center;
+        border-bottom: 1px solid var(--acpchat-border);
+        display: flex;
+        justify-content: space-between;
+        margin: -1px -1px 3px;
+        min-width: 0;
+        padding: 4px 5px 6px 7px;
+      }
+      .acpchat-attach-menu-title {
+        color: var(--acpchat-muted);
+        font-size: 10px;
+        font-weight: 700;
+        min-width: 0;
+      }
+      .acpchat-attach-menu-close {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        border-radius: 999px;
+        color: var(--acpchat-muted);
+        display: inline-flex;
+        font-size: 14px;
+        height: 20px;
+        justify-content: center;
+        line-height: 1;
+        padding: 0;
+        width: 20px;
+      }
+      .acpchat-attach-menu-close:hover {
+        background: var(--acpchat-hover);
+        color: var(--acpchat-text);
       }
       .acpchat-attach-option {
         align-items: start;

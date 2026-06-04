@@ -29,6 +29,10 @@ const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
   },
 ];
 
+const DEFAULT_CHAT_FONT_SIZE_PX = 12.5;
+const MIN_CHAT_FONT_SIZE_PX = 10;
+const MAX_CHAT_FONT_SIZE_PX = 18;
+
 export function getSettings(): Settings {
   const rawProfiles = getJson("agentProfiles", []);
   const configuredProfiles = normalizeAgentProfiles(rawProfiles);
@@ -42,14 +46,36 @@ export function getSettings(): Settings {
   );
   return {
     agentProfiles,
+    chatFontSizePx: normalizeChatFontSizePx(
+      getString("chatFontSizePx", String(DEFAULT_CHAT_FONT_SIZE_PX)),
+    ),
     defaultAgent,
     sendKeyMode: normalizeSendKeyMode(getString("sendKeyMode", "ctrlEnter")),
     sessionStorePath: getString("sessionStorePath", ""),
+    toolDetailsDefaultOpen: normalizeToolDetailsDefaultOpen(
+      getString("toolDetailsDefaultOpen", "true"),
+    ),
   };
 }
 
 export function normalizeSendKeyMode(value: string): SendKeyMode {
   return value.trim() === "enter" ? "enter" : "ctrlEnter";
+}
+
+export function normalizeChatFontSizePx(value: string): number {
+  const parsed = Number(value.trim());
+  if (!Number.isFinite(parsed)) return DEFAULT_CHAT_FONT_SIZE_PX;
+  return Math.min(
+    MAX_CHAT_FONT_SIZE_PX,
+    Math.max(MIN_CHAT_FONT_SIZE_PX, parsed),
+  );
+}
+
+export function normalizeToolDetailsDefaultOpen(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "false") return false;
+  if (normalized === "true") return true;
+  return true;
 }
 
 export function selectDefaultAgent(

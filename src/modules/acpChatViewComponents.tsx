@@ -332,6 +332,7 @@ export function MessageList({
   renderMarkdown,
   scrollResetKey,
   status,
+  toolDetailsDefaultOpen,
 }: {
   hasPdf: boolean;
   l10n: Localize;
@@ -339,6 +340,7 @@ export function MessageList({
   renderMarkdown: (text: string) => string;
   scrollResetKey: string;
   status: ChatStatus;
+  toolDetailsDefaultOpen: boolean;
 }) {
   const [nowMs, setNowMs] = useState(Date.now());
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -414,28 +416,48 @@ export function MessageList({
           {showEmpty && (
             <EmptyState kind="no-history" l10n={l10n} status={status} />
           )}
-          {turns.map((turn) => (
-            <section className="acpchat-turn" key={turn.id}>
-              {turn.userMessage && (
-                <MessageItem
+          {turns.map((turn) => {
+            const isActive = turn.responseMessages.some(
+              (message) => message.status === "streaming",
+            );
+            const durationLabel = formatElapsedDuration(
+              getTurnElapsedSeconds(turn, nowMs, isActive),
+            );
+            const processedLabel = l10n(
+              "acpchat-tools-processed",
+              "已处理 {duration}",
+              { duration: durationLabel },
+            );
+            const responseMessages = turn.responseMessages.filter(
+              (message) => !isMetaRole(message.role),
+            );
+
+            return (
+              <section className="acpchat-turn" key={turn.id}>
+                {turn.userMessage && (
+                  <MessageItem
+                    l10n={l10n}
+                    message={turn.userMessage}
+                    renderMarkdown={renderMarkdown}
+                  />
+                )}
+                <TurnToolStack
+                  defaultOpen={toolDetailsDefaultOpen}
                   l10n={l10n}
-                  message={turn.userMessage}
-                  renderMarkdown={renderMarkdown}
+                  turn={turn}
                 />
-              )}
-              <TurnToolStack l10n={l10n} nowMs={nowMs} turn={turn} />
-              {turn.responseMessages
-                .filter((message) => !isMetaRole(message.role))
-                .map((message) => (
+                {responseMessages.map((message, index) => (
                   <MessageItem
                     key={message.id}
                     l10n={l10n}
                     message={message}
+                    processedLabel={index === 0 ? processedLabel : undefined}
                     renderMarkdown={renderMarkdown}
                   />
                 ))}
-            </section>
-          ))}
+              </section>
+            );
+          })}
           {showInlineError && (
             <InlineErrorNotice l10n={l10n} text={errorText} />
           )}
@@ -450,46 +472,26 @@ function scrollToBottom(node: HTMLDivElement): void {
 }
 
 function TurnToolStack({
+  defaultOpen,
   l10n,
-  nowMs,
   turn,
 }: {
+  defaultOpen: boolean;
   l10n: Localize;
-  nowMs: number;
   turn: ChatTurn;
 }) {
   const toolMessages = turn.responseMessages.filter((message) =>
     isMetaRole(message.role),
   );
-  const isActive = turn.responseMessages.some(
-    (message) => message.status === "streaming",
-  );
-  const elapsedSeconds = getTurnElapsedSeconds(turn, nowMs, isActive);
-  const durationLabel = formatElapsedDuration(elapsedSeconds);
-  if (!turn.userMessage && !turn.responseMessages.length) return null;
-  if (!toolMessages.length) {
-    return (
-      <div className="acpchat-turn-tools acpchat-turn-tools-summary-only">
-        <div className="acpchat-turn-tools-summary-row">
-          <span className="acpchat-turn-tools-state">
-            {l10n("acpchat-tools-processed", "已处理 {duration}", {
-              duration: durationLabel,
-            })}
-          </span>
-        </div>
-      </div>
-    );
-  }
+  if (!toolMessages.length) return null;
 
   return (
-    <details className="acpchat-turn-tools" open={isActive}>
+    <details className="acpchat-turn-tools" open={defaultOpen}>
       <summary className="acpchat-turn-tools-summary">
         <span className="acpchat-turn-tools-state">
-          {l10n("acpchat-tools-processed", "已处理 {duration}", {
-            duration: durationLabel,
-          })}
+          {l10n("acpchat-tools-details", "工具详情")}
         </span>
-        {!isActive && <span className="acpchat-turn-tools-chevron">{">"}</span>}
+        <span className="acpchat-turn-tools-chevron">{">"}</span>
       </summary>
       <div className="acpchat-turn-tools-list">
         {toolMessages.map((message) => (
@@ -610,10 +612,12 @@ function InlineErrorNotice({ l10n, text }: { l10n: Localize; text: string }) {
 function MessageItem({
   l10n,
   message,
+  processedLabel,
   renderMarkdown,
 }: {
   l10n: Localize;
   message: ChatMessage;
+  processedLabel?: string;
   renderMarkdown: (text: string) => string;
 }) {
   const text =
@@ -679,6 +683,9 @@ function MessageItem({
                 ? l10n("acpchat-message-copy-failed", "Failed")
                 : l10n("acpchat-message-copy-button", "Copy")}
           </button>
+        )}
+        {processedLabel && (
+          <span className="acpchat-message-processed">{processedLabel}</span>
         )}
       </div>
       {canRenderMarkdown ? (
@@ -870,6 +877,19 @@ export function Composer({
                 className="acpchat-attach-menu"
                 role="menu"
               >
+                <div className="acpchat-attach-menu-head">
+                  <span className="acpchat-attach-menu-title">
+                    {l10n("acpchat-attach-button-title", "Choose attachment")}
+                  </span>
+                  <button
+                    aria-label={l10n("acpchat-close-button", "Close")}
+                    className="acpchat-attach-menu-close"
+                    onClick={onCloseAttachMenu}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                </div>
                 <button
                   aria-checked={includePdf}
                   aria-label={l10n(

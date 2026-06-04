@@ -12,6 +12,8 @@ export async function registerPrefsScripts(_window: Window) {
 type SettingsForm = {
   defaultAgent: HTMLInputElement;
   sendKeyMode: HTMLSelectElement;
+  chatFontSizePx: HTMLInputElement;
+  toolDetailsDefaultOpen: HTMLSelectElement;
   sessionStorePath: HTMLInputElement;
   agentProfiles: HTMLTextAreaElement;
   saveButton: HTMLButtonElement;
@@ -34,6 +36,12 @@ function getSettingsForm(doc: Document): SettingsForm | null {
   const sendKeyMode = doc.getElementById(
     `${root}-sendKeyMode`,
   ) as HTMLSelectElement | null;
+  const chatFontSizePx = doc.getElementById(
+    `${root}-chatFontSizePx`,
+  ) as HTMLInputElement | null;
+  const toolDetailsDefaultOpen = doc.getElementById(
+    `${root}-toolDetailsDefaultOpen`,
+  ) as HTMLSelectElement | null;
   const sessionStorePath = doc.getElementById(
     `${root}-sessionStorePath`,
   ) as HTMLInputElement | null;
@@ -47,6 +55,8 @@ function getSettingsForm(doc: Document): SettingsForm | null {
   if (
     !defaultAgent ||
     !sendKeyMode ||
+    !chatFontSizePx ||
+    !toolDetailsDefaultOpen ||
     !sessionStorePath ||
     !agentProfiles ||
     !saveButton
@@ -56,6 +66,8 @@ function getSettingsForm(doc: Document): SettingsForm | null {
   return {
     defaultAgent,
     sendKeyMode,
+    chatFontSizePx,
+    toolDetailsDefaultOpen,
     sessionStorePath,
     agentProfiles,
     saveButton,
@@ -66,6 +78,9 @@ function getSettingsForm(doc: Document): SettingsForm | null {
 function loadSettingsIntoForm(form: SettingsForm): void {
   form.defaultAgent.value = getPref("defaultAgent") || "";
   form.sendKeyMode.value = getPref("sendKeyMode") || "ctrlEnter";
+  form.chatFontSizePx.value = getPref("chatFontSizePx") || "12.5";
+  form.toolDetailsDefaultOpen.value =
+    getPref("toolDetailsDefaultOpen") || "true";
   form.sessionStorePath.value = getPref("sessionStorePath") || "";
   form.agentProfiles.value = getPref("agentProfiles") || "";
 }
@@ -84,11 +99,19 @@ async function saveSettings(doc: Document, form: SettingsForm): Promise<void> {
   await setStatus(form.saveStatus, doc, "pref-save-running", "Saving...");
   try {
     const sendKeyMode = normalizeSendKeyMode(form.sendKeyMode.value);
+    const chatFontSizePx = normalizeChatFontSizePx(form.chatFontSizePx.value);
+    const toolDetailsDefaultOpen = normalizeToolDetailsDefaultOpen(
+      form.toolDetailsDefaultOpen.value,
+    );
     setPref("defaultAgent", form.defaultAgent.value.trim());
     setPref("sendKeyMode", sendKeyMode);
+    setPref("chatFontSizePx", String(chatFontSizePx));
+    setPref("toolDetailsDefaultOpen", String(toolDetailsDefaultOpen));
     setPref("sessionStorePath", form.sessionStorePath.value.trim());
     setPref("agentProfiles", form.agentProfiles.value.trim());
     form.sendKeyMode.value = sendKeyMode;
+    form.chatFontSizePx.value = String(chatFontSizePx);
+    form.toolDetailsDefaultOpen.value = String(toolDetailsDefaultOpen);
     await setStatus(
       form.saveStatus,
       doc,
@@ -110,6 +133,16 @@ async function saveSettings(doc: Document, form: SettingsForm): Promise<void> {
 
 function normalizeSendKeyMode(value: string): string {
   return value === "enter" ? "enter" : "ctrlEnter";
+}
+
+function normalizeChatFontSizePx(value: string): number {
+  const parsed = Number(value.trim());
+  if (!Number.isFinite(parsed)) return 12.5;
+  return Math.min(18, Math.max(10, parsed));
+}
+
+function normalizeToolDetailsDefaultOpen(value: string): boolean {
+  return value.trim().toLowerCase() !== "false";
 }
 
 function bindClearCacheButton(prefWindow: Window): void {
