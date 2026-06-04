@@ -35,25 +35,25 @@
   "dependencies": {
     "@types/markdown-it": "^14.1.2",
     "katex": "^0.17.0",
-    "markdown-it": "^14.1.1",
+    "markdown-it": "^14.2.0",
     "markdown-it-texmath": "^1.0.0",
-    "zotero-plugin-toolkit": "^5.1.0-beta.13"
+    "zotero-plugin-toolkit": "^5.1.2"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.10.0",
-    "@types/react": "^19.2.14",
+    "@types/react": "^19.2.16",
     "@types/react-dom": "^19.2.3",
-    "@zotero-plugin/eslint-config": "^0.6.7",
-    "chai": "^6.2.1",
+    "@zotero-plugin/eslint-config": "^0.6.9",
+    "chai": "^6.2.2",
     "eslint": "^9.39.2",
-    "mocha": "^11.7.5",
-    "prettier": "^3.7.4",
-    "tsx": "^4.21.0",
+    "mocha": "^11.7.6",
+    "prettier": "^3.8.3",
+    "tsx": "^4.22.4",
     "typescript": "^5.9.3",
-    "zotero-plugin-scaffold": "^0.8.2",
-    "zotero-types": "^4.1.0-beta.4"
+    "zotero-plugin-scaffold": "^0.8.6",
+    "zotero-types": "^4.1.2"
   },
   "overrides": {
     "diff": "^8.0.3",
