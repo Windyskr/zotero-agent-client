@@ -248,9 +248,11 @@ export const ACP_CHAT_STYLE = `
         border: 1px solid var(--acpchat-border);
         border-radius: 6px;
         color: var(--acpchat-text);
-        display: block;
+        display: flex;
+        flex-direction: column;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         font-size: 10px;
+        gap: 4px;
         line-height: 1.35;
         margin: 0;
         max-height: 180px;
@@ -258,6 +260,10 @@ export const ACP_CHAT_STYLE = `
         padding: 7px;
         white-space: pre-wrap;
         word-break: break-word;
+      }
+      .acpchat-status-log-entry {
+        display: block;
+        min-width: 0;
       }
       .acpchat-status-popover.is-error {
         border-color: rgba(179, 38, 30, 0.32);
@@ -432,6 +438,7 @@ export const ACP_CHAT_STYLE = `
         padding: 1px 6px;
       }
       .acpchat-messages {
+        -moz-user-select: text;
         background:
           linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent 90px),
           var(--acpchat-canvas);
@@ -450,6 +457,7 @@ export const ACP_CHAT_STYLE = `
         overflow-y: auto;
         padding: 14px 10px 12px;
         scrollbar-width: thin;
+        user-select: text;
         width: 100%;
         z-index: 1;
       }
@@ -526,6 +534,7 @@ export const ACP_CHAT_STYLE = `
         line-height: 1.3;
       }
       .acpchat-inline-error-log {
+        -moz-user-select: text;
         background: rgba(255, 255, 255, 0.72);
         border: 1px solid rgba(179, 38, 30, 0.16);
         border-radius: 6px;
@@ -536,6 +545,7 @@ export const ACP_CHAT_STYLE = `
         min-width: 0;
         overflow: auto;
         padding: 6px 7px;
+        user-select: text;
         white-space: pre-wrap;
         word-break: break-word;
       }
@@ -578,10 +588,32 @@ export const ACP_CHAT_STYLE = `
       .acpchat-message-meta span + span {
         margin-left: 5px;
       }
+      .acpchat-message-copy {
+        -moz-user-select: none;
+        background: transparent;
+        border: 1px solid var(--acpchat-border);
+        border-radius: 999px;
+        color: var(--acpchat-muted);
+        cursor: pointer;
+        font: inherit;
+        line-height: 1.2;
+        margin-left: 5px;
+        padding: 1px 5px;
+        user-select: none;
+      }
+      .acpchat-message-copy:hover {
+        background: var(--acpchat-surface-muted);
+        color: var(--acpchat-text);
+      }
+      .acpchat-message-copy:focus-visible {
+        box-shadow: 0 0 0 2px var(--acpchat-focus);
+        outline: none;
+      }
       .acpchat-message-user .acpchat-message-meta {
         justify-content: flex-end;
       }
       .acpchat-message-body {
+        -moz-user-select: text;
         background: var(--acpchat-surface-elevated);
         border: 1px solid transparent;
         border-radius: 8px;
@@ -591,12 +623,15 @@ export const ACP_CHAT_STYLE = `
         min-width: 0;
         overflow-wrap: anywhere;
         padding: 8px 10px;
+        user-select: text;
         white-space: normal;
         word-break: break-word;
       }
       .acpchat-message-body * {
+        -moz-user-select: text;
         max-width: 100%;
         overflow-wrap: anywhere;
+        user-select: text;
         white-space: normal;
         word-break: break-word;
       }
@@ -703,9 +738,11 @@ export const ACP_CHAT_STYLE = `
         gap: 5px;
       }
       .acpchat-tool-item-body {
+        -moz-user-select: text;
         color: var(--acpchat-muted);
         margin-top: 2px;
         overflow-wrap: anywhere;
+        user-select: text;
         white-space: normal;
         word-break: break-word;
       }

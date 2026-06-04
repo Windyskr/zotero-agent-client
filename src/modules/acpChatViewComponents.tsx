@@ -26,6 +26,7 @@ import {
   groupMessagesIntoTurns,
   isAttachedPdfSystemMessage,
   isMetaRole,
+  isScrollNearBottom,
 } from "./acpChatViewModel";
 import { getZoteroReact } from "./zoteroReact";
 
@@ -55,6 +56,7 @@ export function TopAgentBar({
   disableNewTopic,
   isHistoryOpen,
   l10n,
+  logs,
   onAgentChange,
   onNewTopic,
   status,
@@ -66,6 +68,7 @@ export function TopAgentBar({
   disableNewTopic: boolean;
   isHistoryOpen: boolean;
   l10n: Localize;
+  logs: string[];
   onAgentChange: (agentId: string) => void;
   onNewTopic: () => void;
   status: ChatStatus;
@@ -85,12 +88,14 @@ export function TopAgentBar({
     (status.kind === "success"
       ? l10n("acpchat-status-connected", "Connected")
       : statusKindLabel);
+  const recentLogs = logs.length ? logs.slice(0, 5) : [statusLog];
   const copyDetail = [
     `Version: ${version}`,
     `Agent: ${selectedAgentName}`,
     `Command: ${selectedAgentCommand || "(none)"}`,
     `Connection: ${statusKindLabel}`,
-    `Log: ${statusLog}`,
+    "Recent logs:",
+    ...(logs.length ? logs.slice(0, 50) : [statusLog]),
   ].join("\n");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
     "idle",
@@ -172,7 +177,16 @@ export function TopAgentBar({
               <span className="acpchat-status-log-label">
                 {l10n("acpchat-status-log", "Log")}
               </span>
-              <span className="acpchat-status-log">{statusLog}</span>
+              <span className="acpchat-status-log">
+                {recentLogs.map((log, index) => (
+                  <span
+                    className="acpchat-status-log-entry"
+                    key={`${index}-${log}`}
+                  >
+                    {log}
+                  </span>
+                ))}
+              </span>
             </span>
           </span>
         </div>
@@ -316,16 +330,21 @@ export function MessageList({
   l10n,
   messages,
   renderMarkdown,
+  scrollResetKey,
   status,
 }: {
   hasPdf: boolean;
   l10n: Localize;
   messages: ChatMessage[];
   renderMarkdown: (text: string) => string;
+  scrollResetKey: string;
   status: ChatStatus;
 }) {
   const [nowMs, setNowMs] = useState(Date.now());
   const listRef = useRef<HTMLDivElement | null>(null);
+  const shouldStickToBottomRef = useRef(true);
+  const previousMessageCountRef = useRef(messages.length);
+  const previousScrollResetKeyRef = useRef(scrollResetKey);
   const hasStreamingMessage = messages.some(
     (message) => message.status === "streaming",
   );
@@ -338,15 +357,28 @@ export function MessageList({
   useEffect(() => {
     const node = listRef.current;
     if (!node) return;
+    const didSwitchScrollContext =
+      previousScrollResetKeyRef.current !== scrollResetKey;
+    const didAppendUserMessage = messages
+      .slice(previousMessageCountRef.current)
+      .some((message) => message.role === "user");
+    previousScrollResetKeyRef.current = scrollResetKey;
+    previousMessageCountRef.current = messages.length;
+    const shouldScrollToBottom =
+      didSwitchScrollContext ||
+      didAppendUserMessage ||
+      shouldStickToBottomRef.current;
+    if (!shouldScrollToBottom) return;
+    shouldStickToBottomRef.current = true;
     const win = node.ownerDocument?.defaultView;
     if (win?.requestAnimationFrame) {
       const frame = win.requestAnimationFrame(() => {
-        node.scrollTop = node.scrollHeight;
+        scrollToBottom(node);
       });
       return () => win.cancelAnimationFrame(frame);
     }
-    node.scrollTop = node.scrollHeight;
-  }, [messages]);
+    scrollToBottom(node);
+  }, [messages, scrollResetKey]);
 
   const visibleMessages = messages.filter(
     (message) => !isAttachedPdfSystemMessage(message),
@@ -362,7 +394,19 @@ export function MessageList({
     !!errorText && hasPdf && turns.length > 0 && !isErrorAlreadyShown;
 
   return (
-    <div className="acpchat-messages" ref={listRef}>
+    <div
+      className="acpchat-messages"
+      onScroll={(event) => {
+        const node = event.currentTarget;
+        shouldStickToBottomRef.current = isScrollNearBottom(
+          node.scrollTop,
+          node.clientHeight,
+          node.scrollHeight,
+          48,
+        );
+      }}
+      ref={listRef}
+    >
       {!hasPdf ? (
         <EmptyState kind="missing-pdf" l10n={l10n} status={status} />
       ) : (
@@ -399,6 +443,10 @@ export function MessageList({
       )}
     </div>
   );
+}
+
+function scrollToBottom(node: HTMLDivElement): void {
+  node.scrollTop = node.scrollHeight;
 }
 
 function TurnToolStack({
@@ -577,6 +625,26 @@ function MessageItem({
         )
       : "");
   const canRenderMarkdown = message.role === "assistant";
+  const copyableText = message.text.trim() ? message.text : "";
+  const canCopyMessage =
+    (message.role === "user" || message.role === "assistant") && !!copyableText;
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
+  useEffect(() => {
+    setCopyState("idle");
+  }, [message.id, message.text]);
+
+  const handleCopyMessage = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await copyTextToClipboard(copyableText);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+  };
 
   return (
     <article
@@ -591,10 +659,26 @@ function MessageItem({
         {formatMessageTime(message.createdAt) && (
           <span>{formatMessageTime(message.createdAt)}</span>
         )}
-        {message.status && message.status !== "done" && (
-          <span className="acpchat-message-state">
-            {getMessageStatusLabel(message.status, l10n)}
-          </span>
+        {message.status &&
+          message.status !== "done" &&
+          message.status !== "streaming" && (
+            <span className="acpchat-message-state">
+              {getMessageStatusLabel(message.status, l10n)}
+            </span>
+          )}
+        {canCopyMessage && (
+          <button
+            className="acpchat-message-copy"
+            onClick={handleCopyMessage}
+            title={l10n("acpchat-message-copy-button", "Copy")}
+            type="button"
+          >
+            {copyState === "copied"
+              ? l10n("acpchat-message-copy-copied", "Copied")
+              : copyState === "failed"
+                ? l10n("acpchat-message-copy-failed", "Failed")
+                : l10n("acpchat-message-copy-button", "Copy")}
+          </button>
         )}
       </div>
       {canRenderMarkdown ? (

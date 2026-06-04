@@ -80,6 +80,15 @@ export function isAttachedPdfSystemMessage(message: ChatMessage): boolean {
   return /(?:Attached PDF|已附加 PDF)[:：]/.test(message.text);
 }
 
+export function isScrollNearBottom(
+  scrollTop: number,
+  clientHeight: number,
+  scrollHeight: number,
+  thresholdPx: number,
+): boolean {
+  return scrollHeight - scrollTop - clientHeight <= thresholdPx;
+}
+
 function toTimestamp(iso: string, fallbackMs: number): number {
   const value = new Date(iso).getTime();
   return Number.isNaN(value) ? fallbackMs : value;

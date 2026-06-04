@@ -6,6 +6,7 @@ import {
   groupMessagesIntoTurns,
   isAttachedPdfSystemMessage,
   isMetaRole,
+  isScrollNearBottom,
 } from "../src/modules/acpChatViewModel";
 
 describe("ACP chat view model", function () {
@@ -87,6 +88,13 @@ describe("ACP chat view model", function () {
         message("system-2", "system", undefined, "Other context"),
       ),
     );
+  });
+
+  it("detects when a scroll container is near the bottom", function () {
+    assert.isTrue(isScrollNearBottom(700, 300, 1000, 48));
+    assert.isTrue(isScrollNearBottom(660, 300, 1000, 48));
+    assert.isFalse(isScrollNearBottom(600, 300, 1000, 48));
+    assert.isTrue(isScrollNearBottom(0, 500, 400, 48));
   });
 });
 

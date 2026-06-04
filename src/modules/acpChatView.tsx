@@ -135,7 +135,7 @@ export function AcpChatPanel({
   const [isHydrating, setIsHydrating] = useState(false);
   const [isAgentSwitching, setIsAgentSwitching] = useState(false);
   const [record, setRecord] = useState(initialRecord);
-  const [status, setStatus] = useState(initialStatus);
+  const [status, setStatusState] = useState(initialStatus);
   const [configOptions, setConfigOptions] = useState(initialConfigOptions);
   const [topics, setTopics] = useState(initialTopics);
   const [includePdf, setIncludePdf] = useState(
@@ -144,8 +144,17 @@ export function AcpChatPanel({
   const [attachment, setAttachment] = useState<AttachmentContext | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
+  const [statusLogs, setStatusLogs] = useState(() =>
+    initialStatus.text ? [formatStatusLogEntry(initialStatus)] : [],
+  );
   const recordRef = useRef<SessionRecord | null>(initialRecord);
   const lastHydrationKeyRef = useRef("");
+  const setStatus = (nextStatus: ChatStatus) => {
+    setStatusState(nextStatus);
+    setStatusLogs((currentLogs) =>
+      [formatStatusLogEntry(nextStatus), ...currentLogs].slice(0, 50),
+    );
+  };
 
   const selectedAgent = useMemo(
     () => settings.agentProfiles.find((profile) => profile.id === agentId),
@@ -383,6 +392,7 @@ export function AcpChatPanel({
         disableNewTopic={!pdf || isRunning || isHydrating}
         isHistoryOpen={isHistoryOpen}
         l10n={l10n}
+        logs={statusLogs}
         onAgentChange={(nextAgentId) => {
           void handleAgentChange(nextAgentId);
         }}
@@ -426,6 +436,7 @@ export function AcpChatPanel({
             l10n={l10n}
             messages={messages}
             renderMarkdown={renderMarkdown}
+            scrollResetKey={record?.key ?? ""}
             status={status}
           />
           <Composer
@@ -460,6 +471,19 @@ export function AcpChatPanel({
 
 function isNonSystemMessage(message: { role: string }): boolean {
   return message.role !== "system";
+}
+
+function formatStatusLogEntry(status: ChatStatus): string {
+  const text = status.text.trim() || status.kind;
+  return `[${formatStatusLogTime(new Date())}] ${status.kind}: ${text}`;
+}
+
+function formatStatusLogTime(date: Date): string {
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 function shouldDefaultIncludePdf(
