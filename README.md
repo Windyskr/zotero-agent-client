@@ -94,6 +94,22 @@ claude --version
 claude-agent-acp --help
 ```
 
+如果希望 Claude Code 的 `Read` 工具直接读取 PDF 页面，还需要安装 `poppler`，确保系统中有 `pdftoppm`：
+
+```sh
+# macOS
+brew install poppler
+
+# Debian/Ubuntu
+sudo apt-get install poppler-utils
+```
+
+安装后可以验证：
+
+```sh
+pdftoppm -v
+```
+
 如果 Claude Code 需要登录或授权，请先在终端里完成：
 
 ```sh
@@ -276,6 +292,17 @@ claude-agent-acp
 如果终端中也无法启动，请先安装或修复对应 agent。
 如果你配置了自定义 `command`，请在普通终端中用同一组 `command` 和 `args` 先确认
 它能启动。
+
+### Claude Code 读取 PDF 失败
+
+如果工具记录里出现类似下面的失败：
+
+```text
+Read <paper>.pdf (failed)
+pdftoppm is not installed
+```
+
+说明 Claude Code 读取 PDF 页面时缺少 `poppler`。请安装 `poppler` 或 `poppler-utils`，并确认 `pdftoppm -v` 可以运行。安装后建议重启 Zotero，让插件启动的新 agent 进程继承最新环境。
 
 ### 一直显示运行中
 
